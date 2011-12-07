@@ -4,7 +4,6 @@ import threading
 import struct as st
 from time import *
 from numpy import *
-from pylab import is_string_like
 
 logging.basicConfig()
 
