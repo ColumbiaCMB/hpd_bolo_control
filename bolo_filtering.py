@@ -1,9 +1,8 @@
 import scipy.signal as sig
 from numpy import *
-from collections import deque
 
 class bolo_filtering:
-    def __init__(self,ntaps=1000,
+    def __init__(self,ntaps=1001,
                  cutoff_hz=35,sample_rate=5000,
                  decimate = None):
         self.ntaps = ntaps
@@ -12,7 +11,6 @@ class bolo_filtering:
         self.decimate = decimate
         self.sample_rate = sample_rate
         self.nyq_rate = sample_rate/2.0
-        self.data = deque()
 
         self.setup_FIR()
 
@@ -25,7 +23,7 @@ class bolo_filtering:
         self.h_Db = 20*log10(abs(self.h))
 
     def simple_filter(self,data):
-        return sig.lfilter(taps,1.0,data)
+        return sig.lfilter(self.taps,1.0,data)
 
     def stream_filter(self,chunk,init=False):
         #This uses the Overlap-add method to filter
@@ -33,18 +31,28 @@ class bolo_filtering:
         #I think you can send in different chunk size but
         #should be 2**n
         #If we are starting then clear the data and we don't add
+        
+        #We also add timesamps in here to match up
         chunk_size = chunk.size
         filt = convolve(self.taps,chunk) #this is self.overlap larger
 
         if init is True:
-            self.data.clear()
+            #And we shold not return the
+            #FIR offset at the beginning
             self.extra = []
+            self.offset = (self.ntaps-1)/2
         else:
             #We add and then expand
             filt[0:self.overlap] = filt[0:self.overlap] + self.extra
         self.extra = filt[chunk_size:]
+
         if self.decimate is not None:
-            return filt[0:chunk_size:self.decimate]
+            #We have to be careful otherwise we loose data sync
+            #We could try saving the data but instead just skip
+            #The relevent number entries next time around
+            t_data = filt[self.offset:chunk_size:self.decimate]
+            self.offset = self.decimate - len(filt[self.offset:chunk_size]) % self.decimate
+            return t_data
         else:
             return filt[0:chunk_size]
 

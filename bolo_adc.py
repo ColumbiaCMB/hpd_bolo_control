@@ -1,10 +1,12 @@
 import threading
 import collections
 import time,mmap,struct
+import datetime
 import logging
 import comedi as c
 from numpy import *
 from bolo_filtering import *
+from date_tools import *
 #import dualscope
 
 import matplotlib
@@ -29,6 +31,11 @@ class bolo_adcCommunicator():
         self.sa_temp = collections.deque(maxlen=max_buffer) #For FIR filtering
         self.sa_ds =  collections.deque(maxlen=max_buffer)
         self.ls_data = collections.deque() #timestamp with FIR delay
+
+        self.timestamps = collections.deque(maxlen=max_buffer)
+        self.ts_temp = collections.deque(maxlen=max_buffer)
+        self.ts_ds =  collections.deque(maxlen=max_buffer)
+
         self.stop_event = threading.Event()
         self.filter_event = threading.Event()
         self.filter_lock = threading.Lock()
@@ -57,9 +64,8 @@ class bolo_adcCommunicator():
         self.ls_freq = 5000 #Low speed data taking frequency
         self.hs_freq = 500000 #High speed data taking frequency
         
-        self.chunk_power = 13 #filter chunk size
+        self.chunk_power = 12 #filter chunk size
         self.ntaps = 1001
-        self.filt_delay = (self.ntaps-1)/(2.0*self.ls_freq)
 
         self.sa_filt = bolo_filtering(ntaps=self.ntaps,
                                       cutoff_hz=35,sample_rate=self.ls_freq,
@@ -68,6 +74,11 @@ class bolo_adcCommunicator():
         self.fb_filt = bolo_filtering(ntaps=self.ntaps,
                                       cutoff_hz=35,sample_rate=self.ls_freq,
                                       decimate = 50) #100 hz 5000/50
+
+        self.ts_filt = bolo_filtering(ntaps=self.ntaps,
+                                      cutoff_hz=35,sample_rate=self.ls_freq,
+                                      decimate = 50) #100 hz 5000/50
+
         self.collect_data_flag = False
         self.setup_adc()
 
@@ -119,6 +130,11 @@ class bolo_adcCommunicator():
         self.sa_uf.clear()
         self.sa_temp.clear()
         self.sa_ds.clear()
+
+        self.timestamps.clear()
+        self.ts_temp.clear()
+        self.ts_ds.clear()
+
         self.filter_lock.release()
 
         self.data_lock.acquire()
@@ -149,7 +165,7 @@ class bolo_adcCommunicator():
         self.comedi_reset()
         cmd = self.prepare_cmd(channels, gains,refs,frequency)
         #Get base timestamp here with tap delay
-        self.adc_time = time.time() - self.filt_delay
+        self.adc_time  = datetime.datetime.utcnow()
         ret = c.comedi_command(self.dev,cmd)
         if ret<0:
             self.logger.error("Error executing comedi_command")
@@ -203,34 +219,38 @@ class bolo_adcCommunicator():
         self.filter_event.clear()
         first_pass = True
         chunk_size = 2**self.chunk_power
-        time_diff = 1.0/100
         while not self.stop_event.isSet():
             #Both should be filling up so make sure both are above chunk size
             if (size(self.sa_temp) > chunk_size) and (size(self.fb_temp) > chunk_size):
                 chunk_sa = []
-                chunk_fb = []               
+                chunk_fb = []    
+                chunk_ts = []
                 self.filter_lock.acquire()
                 for i in xrange(chunk_size): #Is this really the only way
                     chunk_sa.append(self.sa_temp.popleft())
                     chunk_fb.append(self.fb_temp.popleft())
+                    chunk_ts.append(self.ts_temp.popleft())
                 self.filter_lock.release()
 
                 temp_sa = self.sa_filt.stream_filter(array(chunk_sa),init=first_pass)
                 temp_fb = self.fb_filt.stream_filter(array(chunk_fb),init=first_pass)
+                temp_ts = self.ts_filt.stream_filter(array(chunk_ts),init=first_pass)
+
+                if size(temp_sa) != size(temp_fb):
+                    print len(self.sa_filt.offset),  len(self.fb_filt.offset)
                 for i in xrange(len(temp_fb)):
                     #Think we need to do it like this maybe
                     #Thre is a more efficient way
                     #We only add data if the collect data flag is set
                     if self.collect_data_flag is True:
-                        self.adc_lock.acquire()
-                        self.ls_data.append([self.adc_time,temp_sa[i],temp_fb[i]])
-                        self.adc_lock.release()
-                    self.adc_time = self.adc_time + time_diff
+                        self.data_lock.acquire()
+                        self.ls_data.append([temp_ts[i],temp_sa[i],temp_fb[i]])
+                        self.data_lock.release()
 
-                #print datetime.datetime.now() - self.adc_time
-
+                #print  datetime.datetime.utcnow() - self.adc_time
                 self.sa_ds.extend(temp_sa)
                 self.fb_ds.extend(temp_fb)
+                self.ts_ds.extend(temp_ts)
 
                 if first_pass is True:
                     first_pass = False
@@ -240,6 +260,7 @@ class bolo_adcCommunicator():
           
     def collect_data(self):
         self.stop_event.clear()
+        time_diff = datetime.timedelta(microseconds=200)
         while not self.stop_event.isSet():
             n_count = c.comedi_get_buffer_contents(self.dev,self.subdevice)
             if n_count == 0:
@@ -254,23 +275,34 @@ class bolo_adcCommunicator():
             format = "%iI" % (n_count/4)
             dd = array(struct.unpack(format,data))
             dd = dd.reshape(n_count/8, 2)
+
             self.adc_lock.release()
             temp_fb = self.convert_to_real(self.fb_gain,dd[:,0])
             temp_sa = self.convert_to_real(self.sa_gain,dd[:,1])
             #Here we assume that the first value is first channel
             if self.speed_flag == "ls":
+                self.data_lock.acquire()
                 self.fb.extend(temp_fb)
                 self.sa.extend(temp_sa)
+                self.data_lock.release()
                 self.filter_lock.acquire()
                 self.fb_temp.extend(temp_fb)
                 self.sa_temp.extend(temp_sa)
+                
+                for i in xrange(n_count/8):
+                    mjd = dt_to_mjd(self.adc_time)
+                    self.timestamps.append(mjd)
+                    self.ts_temp.append(mjd)
+                    self.adc_time = self.adc_time + time_diff
+
                 self.filter_lock.release()
             else:
                 self.fb_uf.extend(temp_fb)
                 self.sa_uf.extend(temp_sa)
-            
-            c.comedi_mark_buffer_read(self.dev,self.subdevice,n_count)
 
+            c.comedi_mark_buffer_read(self.dev,self.subdevice,n_count)
+            
+            
         #OK so we got a stop call - Halt the command
         #Get the latest data and then reset
         n_count = c.comedi_poll(self.dev,self.subdevice)

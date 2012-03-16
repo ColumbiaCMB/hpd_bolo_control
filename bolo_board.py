@@ -4,7 +4,9 @@ import gmpy
 import collections
 import mmap
 import time
+import datetime
 from numpy import arange,linspace
+from date_tools import *
 
 class bolo_board():
     def __init__(self):
@@ -91,15 +93,15 @@ class bolo_board():
             for v in arange(start,stop,step):
                 self.set_voltage(mux,channel,v)
                 self.data_lock.acquire()
-                self.sweep_data.append([time.time(),v])
+                self.sweep_data.append([mjdnow(),v])
                 self.data_lock.release()
-                time.sleep(0.005)
+                time.sleep(0.001)
                 #time.sleep(0.05)
             if loop is True:
                 for v in arange(stop,start,-step):
                     self.set_voltage(mux,channel,v)
                     self.data_lock.acquire()
-                    self.sweep_data.append([time.time(),v])
+                    self.sweep_data.append([mjdnow(),v])
                     self.data_lock.release()
                     time.sleep(0.001)
 
