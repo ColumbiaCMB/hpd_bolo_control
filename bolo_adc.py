@@ -42,6 +42,7 @@ class bolo_adcCommunicator():
         self.data_lock = threading.Lock() #Used for poping data to client
         self.adc_lock = threading.Lock() #Used for poping data to client
 
+        self.registers = {}
 
         self.cmdtest_messages = [
             "success",
@@ -171,8 +172,10 @@ class bolo_adcCommunicator():
             self.logger.error("Error executing comedi_command")
             return -1
         collector_thread = threading.Thread(target=self.collect_data)
+        collector_thread.daemon = True
         collector_thread.start()
         filter_thread = threading.Thread(target=self.filter_data)
+        filter_thread.daemon = True
         filter_thread.start()
         if period > 0:
             stop_timer = threading.Timer(period,self.collect_data_stop)
@@ -317,10 +320,11 @@ class bolo_adcCommunicator():
     def convert_to_real(self,gain,data):
         #This function replaces the comedi conversion as it works
         #On arrays (vectorized) and is much faster
+        #We also have a gain of -1 to counteract the -1 of the active filter
         v_range = self.gain_lookup[gain]
         volts_per_bit = v_range*2.0/(2**18)
-        #It is always +- so
-        return (-v_range + volts_per_bit*data)
+        real_volts = -v_range + volts_per_bit*data
+        return -real_volts
 
     def comedi_reset(self):
         #First stop  the command

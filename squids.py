@@ -30,7 +30,7 @@ class squids():
         self.bb.set_switch(3,12,True) # Low T constant
         self.bb.set_switch(3,15,True) #short PI
         self.bb.set_switch(3,0,True) #SA FB
-        self.bb.set_switch(3,1,True) #SA bias
+        self.bb.sa_bias_switch(True)
         self.bb.set_switch(2,1,True) #S2 Bias
 
         self.adc_data.comedi_reset() #reset any state

@@ -27,6 +27,8 @@ class bolo_board():
         self.s1_fb_m = [3,4]
         self.aux = [3,5]
 
+        self.registers = {} #Dict to store common information
+        
         self.data = 0
         #Just set switches to zero and then add to what is needed
         #We have four so just use array
@@ -45,23 +47,30 @@ class bolo_board():
         cm.comedi_dio_write(self.cf,self.subdev,self.din_chan,0)
         self.data_lock = threading.Lock() 
 
+
     def sa_fb_switch(self,state):
         self.set_switch(self.sa_fb[0],self.sa_fb[1],state)
+        self.registers["sa_fb_switch"] = state
 
     def sa_bias_switch(self,state):
         self.set_switch(self.sa_bias[0],self.sa_bias[1],state)
+        self.registers["sa_bias_switch"] = state
 
     def sa_bias_ext_switch(self,state):
         self.set_switch(self.sa_bias_external[0],self.sa_bias_external[1],state)
+        self.registers["sa_bias_ext_switch"] = state
 
     def s1_fb_switch(self,state):
         self.set_switch(self.s1_fb[0],self.s1_fb[1],state)
+        self.registers["s1_fb_switch"] = state
 
     def s1_fb_m_switch(self,state):
         self.set_switch(self.s1_fb_m[0],self.s1_fb_m[1],state)
+        self.registers["s1_fb_m_switch"] = state
 
     def aux_switch(self,state):
         self.set_switch(self.aux[0],self.aux[1],state)
+        self.registers["aux_switch"] = state
 
     def zero_voltages(self):
         for i in xrange(3):
