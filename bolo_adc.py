@@ -83,8 +83,8 @@ class bolo_adcCommunicator():
         self.collect_data_flag = False
 
         #temorary data
-        self.x_min = 0.0055
-        self.x_max = 0.0065
+        self.x_min = 0
+        self.x_max = 0.03
         self.setup_adc()
 
     def setup_adc(self):
@@ -429,25 +429,34 @@ class bolo_adcCommunicator():
             line2.set_ydata(self.sa_ds)
             fig.canvas.draw()
             time.sleep(0.5)
+    def plot_thread(self):
+        temp_thread = threading.Thread(target=self.test_fft)
+        temp_thread.daemon = True
+        temp_thread.start()
 
     def test_fft(self):
         fig = plt.figure()
         ax1 = fig.add_subplot(211)
         ax2 = fig.add_subplot(212)
-        ax1.set_autoscale_on(False)
+        #ax1.set_autoscale_on(true)
         #ax2.set_autoscale_on(False)
-        ax1.axis([0,self.max_buffer,self.x_min,self.x_max])
+        #ax1.axis([0,self.max_buffer,self.x_min,self.x_max])
         #ax2.axis([0,self.max_buffer,self.x_min,self.x_max])
-
+        
         freq = fft.fftfreq(len(self.sa),(1.0/self.ls_freq))
         fourier = abs(fft.fft(self.sa))
         line1, = ax1.plot(self.sa)
         line2, = ax2.plot(freq[3:400],fourier[3:400])
+        #ax2.set_yscale('log')
 
         while(1):
             fourier = abs(fft.fft(self.sa))
             line1.set_ydata(self.sa)
             line2.set_ydata(fourier[3:400])
+            ax1.relim()
+            ax2.relim()
+            ax1.autoscale_view(True, True, True)
+            ax2.autoscale_view(True, True, True)
             fig.canvas.draw()
             time.sleep(0.2)
 
