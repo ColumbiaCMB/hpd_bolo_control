@@ -22,20 +22,27 @@ class squids():
         self.setup_board()
 
     def setup_board(self):
-        self.bb.set_voltage(2,1,0) #SSA BIAS
-        self.bb.set_voltage(2,0,0) #SSA BIAS
+        self.bb.zero_voltages()
 
         self.bb.set_switch(3,2,False) #No external SA bias
         self.bb.set_switch(3,8,True) #Low Gain
         self.bb.set_switch(3,12,True) # Low T constant
         self.bb.set_switch(3,15,True) #short PI
-        self.bb.set_switch(3,0,True) #SA FB
-        self.bb.sa_bias_switch(True)
-        self.bb.set_switch(2,1,True) #S2 Bias
 
         self.adc_data.comedi_reset() #reset any state
         self.adc_data.get_ls_data(0) #Take data for ever
         self.scope_data = collections.deque()
+
+        self.setup_run()
+
+    def setup_run(self):
+        self.bb.sa_bias_switch(True)
+        self.bb.set_voltage(2,1,3.6) #SSA BIAS
+        self.bb.set_voltage(2,2,0.05) #Offset
+        self.bb.set_switch(3,0,True) #SAFB (now input)
+        self.bb.set_switch(3,3,True) # FB
+        self.bb.set_switch(3,15,False) #short PI
+
 
     def sweep(self,mux,channel,start,stop):
         #This takes data for the Series Array IV

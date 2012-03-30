@@ -59,8 +59,8 @@ class bolo_adcCommunicator():
         self.fb_uf_chan = 2
         self.sa_uf_chan = 3
 
-        self.fb_gain = 5
-        self.sa_gain = 5
+        self.fb_gain = 3
+        self.sa_gain = 3
 
         self.ls_freq = 5000 #Low speed data taking frequency
         self.hs_freq = 500000 #High speed data taking frequency
@@ -198,19 +198,19 @@ class bolo_adcCommunicator():
         temp_file2 = open(ftwo,"w")
 
         while not self.stop_event.isSet():
-            n_elements = size(self.sa_ds)
+            n_elements = size(self.fb_ds)
             if n_elements != 0:
                 self.filter_lock.acquire()
                 for i in xrange(n_elements):
-                    temp_file.write(str(self.sa_ds.popleft()))
+                    temp_file.write(str(self.fb_ds.popleft()))
                     temp_file.write("\n")
                 self.filter_lock.release()
 
-            n_elements = size(self.sa)
+            n_elements = size(self.fb)
             if n_elements != 0:
                 self.filter_lock.acquire()
                 for i in xrange(n_elements):
-                    temp_file2.write(str(self.sa.popleft()))
+                    temp_file2.write(str(self.fb.popleft()))
                     temp_file2.write("\n")
                 self.filter_lock.release()
             temp_file.flush()
@@ -416,21 +416,27 @@ class bolo_adcCommunicator():
         fig = plt.figure()
         ax1 = fig.add_subplot(211)
         ax2 = fig.add_subplot(212)
-        ax1.set_autoscale_on(False)
-        ax2.set_autoscale_on(False)
-        ax1.axis([0,self.max_buffer,self.x_min,self.x_max])
-        ax2.axis([0,self.max_buffer,self.x_min,self.x_max])
+        #ax1.set_autoscale_on(False)
+        #ax2.set_autoscale_on(False)
+        #ax1.axis([0,self.max_buffer,self.x_min,self.x_max])
+        #ax2.axis([0,self.max_buffer,self.x_min,self.x_max])
 
-        line1, = ax1.plot(self.sa)
-        line2, = ax2.plot(self.sa_ds)
+        line1, = ax1.plot(array(self.fb_ds)[-300:])
+        line2, = ax2.plot(array(self.sa_ds)[-300:])
 
         while(1):
-            line1.set_ydata(self.sa)
-            line2.set_ydata(self.sa_ds)
+            line1.set_ydata(array(self.fb_ds)[-300:])
+            line2.set_ydata(array(self.sa_ds)[-300:])
+            ax1.relim()
+            ax2.relim()
+            ax1.autoscale_view(True, True, True)
+            ax2.autoscale_view(True, True, True)
             fig.canvas.draw()
-            time.sleep(0.5)
+            time.sleep(0.2)
+
+
     def plot_thread(self):
-        temp_thread = threading.Thread(target=self.test_fft)
+        temp_thread = threading.Thread(target=self.test_plot)
         temp_thread.daemon = True
         temp_thread.start()
 
