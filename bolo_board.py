@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import sys
 import threading
 import comedi as cm
@@ -435,3 +436,8 @@ class bolo_board():
         for row in self.cur:
             cmd = cmd + "self.%s(%i);" % (row[1],row[2])
         exec cmd
+
+if __name__ == "__main__":
+    b_board = bolo_board()
+    b_board.launch_gui()
+    sys.exit(b_board.app.exec_())

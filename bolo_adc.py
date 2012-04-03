@@ -1,3 +1,5 @@
+#!/usr/bin/python
+import sys
 import threading
 import collections
 import time,mmap,struct
@@ -7,6 +9,7 @@ import comedi as c
 from numpy import *
 from bolo_filtering import *
 from date_tools import *
+from bolo_adc_gui import *
 #import dualscope
 
 import matplotlib
@@ -472,3 +475,16 @@ class bolo_adcCommunicator():
         self.collect_data_stop()
         self.map.close()
         c.comedi_close(self.dev)
+
+    def launch_gui(self):
+        self.app = QtGui.QApplication(sys.argv)
+        self.gui = bolo_adc_gui(self)
+        self.gui.show()
+
+if __name__ == "__main__":
+    b_adc = bolo_adcCommunicator(10000)
+    b_adc.get_ls_data(0)
+    b_adc.launch_gui()
+    b_adc.gui.plot_timer.start(100)
+    sys.exit(b_adc.app.exec_())
+    
