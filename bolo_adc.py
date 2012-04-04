@@ -9,7 +9,7 @@ import comedi as c
 from numpy import *
 from bolo_filtering import *
 from date_tools import *
-from bolo_adc_gui import *
+#from bolo_adc_gui import *
 #import dualscope
 
 import matplotlib
@@ -39,6 +39,13 @@ class bolo_adcCommunicator():
         self.ts_temp = collections.deque(maxlen=max_buffer)
         self.ts_ds =  collections.deque(maxlen=max_buffer)
 
+        self.fourier_freq = []
+        self.fourier_freq_ds = []
+        self.fourier_sa =[]
+        self.fourier_fb = []
+        self.fourier_sa_ds = []
+        self.fourier_fb_ds = []
+
         self.stop_event = threading.Event()
         self.filter_event = threading.Event()
         self.filter_lock = threading.Lock()
@@ -62,26 +69,17 @@ class bolo_adcCommunicator():
         self.fb_uf_chan = 2
         self.sa_uf_chan = 3
 
-        self.fb_gain = 3
-        self.sa_gain = 3
+        self.adc_gain = 3
 
         self.ls_freq = 5000 #Low speed data taking frequency
         self.hs_freq = 500000 #High speed data taking frequency
         
         self.chunk_power = 12 #filter chunk size
         self.ntaps = 1001
+        self.cutoff_freq = 35
+        self.downsample_freq = 100
 
-        self.sa_filt = bolo_filtering(ntaps=self.ntaps,
-                                      cutoff_hz=35,sample_rate=self.ls_freq,
-                                      decimate = 50) #100 hz 5000/50
-
-        self.fb_filt = bolo_filtering(ntaps=self.ntaps,
-                                      cutoff_hz=35,sample_rate=self.ls_freq,
-                                      decimate = 50) #100 hz 5000/50
-
-        self.ts_filt = bolo_filtering(ntaps=self.ntaps,
-                                      cutoff_hz=35,sample_rate=self.ls_freq,
-                                      decimate = 50) #100 hz 5000/50
+        self.setup_filtering()
 
         self.collect_data_flag = False
 
@@ -89,6 +87,28 @@ class bolo_adcCommunicator():
         self.x_min = 0
         self.x_max = 0.03
         self.setup_adc()
+
+    def setup_filtering(self):
+        deci = self.ls_freq/self.downsample_freq
+        self.true_ds_freq = float(self.ls_freq)/float(deci)
+        if self.ls_freq % self.downsample_freq != 0:
+            temp_str = "Actual downsample freq is %f" % self.true_ds_freq
+            self.logger.warn(temp_str)
+
+        self.sa_filt = bolo_filtering(ntaps=self.ntaps,
+                                      cutoff_hz=self.cutoff_freq,
+                                       sample_rate=self.ls_freq,
+                                      decimate = deci) 
+
+        self.fb_filt = bolo_filtering(ntaps=self.ntaps,
+                                      cutoff_hz=self.cutoff_freq,
+                                      sample_rate=self.ls_freq,
+                                      decimate = deci) 
+
+        self.ts_filt = bolo_filtering(ntaps=self.ntaps,
+                                      cutoff_hz=self.cutoff_freq,
+                                      sample_rate=self.ls_freq,
+                                      decimate = deci) 
 
     def setup_adc(self):
         self.subdevice=0 #Always the case here
@@ -155,7 +175,7 @@ class bolo_adcCommunicator():
         #This is just the filtered outputs
         self.reset_queues()
         channels = [self.fb_chan, self.sa_chan]
-        gains = [self.fb_gain, self.sa_gain]
+        gains = [self.adc_gain, self.adc_gain]
         refs = [c.AREF_DIFF, c.AREF_DIFF]
         self.speed_flag = "ls"
         self.get_data(channels,gains,refs,self.ls_freq,period)
@@ -164,7 +184,7 @@ class bolo_adcCommunicator():
         #This is a wrapper to setup for lowspeed data taking
         #This is just the filtered outputs
         channels = [self.fb_uf_chan, self.sa_uf_chan]
-        gains = [self.fb_gain, self.sa_gain]
+        gains = [self.adc_gain, self.adc_gain]
         refs = [c.AREF_DIFF, c.AREF_DIFF]
         self.speed_flag = "hs"
         self.get_data(channels,gains,refs,self.hs_freq,period)
@@ -248,6 +268,7 @@ class bolo_adcCommunicator():
 
                 if size(temp_sa) != size(temp_fb):
                     print len(self.sa_filt.offset),  len(self.fb_filt.offset)
+
                 for i in xrange(len(temp_fb)):
                     #Think we need to do it like this maybe
                     #Thre is a more efficient way
@@ -261,6 +282,14 @@ class bolo_adcCommunicator():
                 self.sa_ds.extend(temp_sa)
                 self.fb_ds.extend(temp_fb)
                 self.ts_ds.extend(temp_ts)
+
+                #And do some FFTs here is we need to - We have the time
+                self.fourier_freq = fft.fftfreq(len(self.sa),(1.0/self.ls_freq))
+                self.fourier_freq_ds = fft.fftfreq(len(self.sa_ds),(1.0/self.true_ds_freq))
+                self.fourier_sa = abs(fft.fft(self.sa))
+                self.fourier_fb = abs(fft.fft(self.fb))
+                self.fourier_sa_ds = abs(fft.fft(self.sa_ds))
+                self.fourier_fb_ds = abs(fft.fft(self.fb_ds))
 
                 if first_pass is True:
                     first_pass = False
@@ -287,8 +316,8 @@ class bolo_adcCommunicator():
             dd = dd.reshape(n_count/8, 2)
 
             self.adc_lock.release()
-            temp_fb = self.convert_to_real(self.fb_gain,dd[:,0])
-            temp_sa = self.convert_to_real(self.sa_gain,dd[:,1])
+            temp_fb = self.convert_to_real(self.adc_gain,dd[:,0])
+            temp_sa = self.convert_to_real(self.adc_gain,dd[:,1])
             #Here we assume that the first value is first channel
             if self.speed_flag == "ls":
                 self.data_lock.acquire()
@@ -335,12 +364,15 @@ class bolo_adcCommunicator():
 
     def comedi_reset(self):
         #First stop  the command
+        self.collect_data_stop()
+        self.stop_event.set()
+        self.filter_event.set()
         ret = c.comedi_cancel(self.dev,self.subdevice)
         if ret!=0:
             self.logger.error("Error executing comedi reset")
             return -1
-        self.stop_event.set()
-        self.filter_event.set()
+        self.reset_queues()
+        self.setup_filtering()
 
     def prepare_cmd(self,channels,gains,aref,freq):
         #First create the channel setup
@@ -413,62 +445,6 @@ class bolo_adcCommunicator():
 	print "cmd.data : ", cmd.data
 	print "cmd.data_len : ", cmd.data_len
 	print "---------------------------"
-        
-
-    def test_plot(self):
-        fig = plt.figure()
-        ax1 = fig.add_subplot(211)
-        ax2 = fig.add_subplot(212)
-        #ax1.set_autoscale_on(False)
-        #ax2.set_autoscale_on(False)
-        #ax1.axis([0,self.max_buffer,self.x_min,self.x_max])
-        #ax2.axis([0,self.max_buffer,self.x_min,self.x_max])
-
-        line1, = ax1.plot(array(self.fb_ds)[-300:])
-        line2, = ax2.plot(array(self.sa_ds)[-300:])
-
-        while(1):
-            line1.set_ydata(array(self.fb_ds)[-300:])
-            line2.set_ydata(array(self.sa_ds)[-300:])
-            ax1.relim()
-            ax2.relim()
-            ax1.autoscale_view(True, True, True)
-            ax2.autoscale_view(True, True, True)
-            fig.canvas.draw()
-            time.sleep(0.2)
-
-
-    def plot_thread(self):
-        temp_thread = threading.Thread(target=self.test_plot)
-        temp_thread.daemon = True
-        temp_thread.start()
-
-    def test_fft(self):
-        fig = plt.figure()
-        ax1 = fig.add_subplot(211)
-        ax2 = fig.add_subplot(212)
-        #ax1.set_autoscale_on(true)
-        #ax2.set_autoscale_on(False)
-        #ax1.axis([0,self.max_buffer,self.x_min,self.x_max])
-        #ax2.axis([0,self.max_buffer,self.x_min,self.x_max])
-        
-        freq = fft.fftfreq(len(self.sa),(1.0/self.ls_freq))
-        fourier = abs(fft.fft(self.sa))
-        line1, = ax1.plot(self.sa)
-        line2, = ax2.plot(freq[3:400],fourier[3:400])
-        #ax2.set_yscale('log')
-
-        while(1):
-            fourier = abs(fft.fft(self.sa))
-            line1.set_ydata(self.sa)
-            line2.set_ydata(fourier[3:400])
-            ax1.relim()
-            ax2.relim()
-            ax1.autoscale_view(True, True, True)
-            ax2.autoscale_view(True, True, True)
-            fig.canvas.draw()
-            time.sleep(0.2)
-
 
     def __del__(self):
         self.logger.info("Deleting Myself")
@@ -483,8 +459,6 @@ class bolo_adcCommunicator():
 
 if __name__ == "__main__":
     b_adc = bolo_adcCommunicator(10000)
-    b_adc.get_ls_data(0)
     b_adc.launch_gui()
-    b_adc.gui.plot_timer.start(100)
     sys.exit(b_adc.app.exec_())
     

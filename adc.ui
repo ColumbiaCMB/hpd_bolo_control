@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>850</width>
-    <height>648</height>
+    <height>570</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -17,13 +17,13 @@
    <property name="geometry">
     <rect>
      <x>240</x>
-     <y>60</y>
+     <y>20</y>
      <width>601</width>
      <height>541</height>
     </rect>
    </property>
    <property name="currentIndex">
-    <number>0</number>
+    <number>2</number>
    </property>
    <widget class="QWidget" name="tab">
     <attribute name="title">
@@ -75,6 +75,24 @@
     <attribute name="title">
      <string>FFT</string>
     </attribute>
+    <widget class="QWidget" name="gridLayoutWidget_6">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>0</y>
+       <width>591</width>
+       <height>511</height>
+      </rect>
+     </property>
+     <layout class="QGridLayout" name="gridLayout_6">
+      <item row="0" column="0">
+       <widget class="QwtPlot" name="fft_fb_plot"/>
+      </item>
+      <item row="1" column="0">
+       <widget class="QwtPlot" name="fft_ssa_plot"/>
+      </item>
+     </layout>
+    </widget>
    </widget>
   </widget>
   <widget class="QGroupBox" name="groupBox_2">
@@ -113,8 +131,14 @@
      <layout class="QGridLayout" name="gridLayout">
       <item row="0" column="1">
        <widget class="QSpinBox" name="N_Taps_Input">
+        <property name="minimum">
+         <number>101</number>
+        </property>
         <property name="maximum">
-         <number>32</number>
+         <number>10001</number>
+        </property>
+        <property name="value">
+         <number>1001</number>
         </property>
        </widget>
       </item>
@@ -125,35 +149,22 @@
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
-       <widget class="QDoubleSpinBox" name="DownSample_Input">
-        <property name="decimals">
-         <number>3</number>
-        </property>
-        <property name="minimum">
-         <double>-5.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>5.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-       </widget>
-      </item>
       <item row="1" column="1">
        <widget class="QDoubleSpinBox" name="Cutoff_Input">
         <property name="decimals">
          <number>3</number>
         </property>
         <property name="minimum">
-         <double>-5.000000000000000</double>
+         <double>1.000000000000000</double>
         </property>
         <property name="maximum">
-         <double>5.000000000000000</double>
+         <double>100.000000000000000</double>
         </property>
         <property name="singleStep">
          <double>0.010000000000000</double>
+        </property>
+        <property name="value">
+         <double>35.000000000000000</double>
         </property>
        </widget>
       </item>
@@ -168,6 +179,16 @@
        <widget class="QLabel" name="label_14">
         <property name="text">
          <string>No TAPS</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QSpinBox" name="DownSample_Input">
+        <property name="maximum">
+         <number>200</number>
+        </property>
+        <property name="value">
+         <number>100</number>
         </property>
        </widget>
       </item>
@@ -210,53 +231,11 @@
         </property>
        </widget>
       </item>
-      <item row="0" column="1">
-       <widget class="QDoubleSpinBox" name="ls_samp_freq_Input">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="decimals">
-         <number>0</number>
-        </property>
-        <property name="minimum">
-         <double>5000.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>5000.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="1" column="1">
-       <widget class="QDoubleSpinBox" name="hs_samp_freq_input">
-        <property name="enabled">
-         <bool>false</bool>
-        </property>
-        <property name="decimals">
-         <number>0</number>
-        </property>
-        <property name="minimum">
-         <double>500000.000000000000000</double>
-        </property>
-        <property name="maximum">
-         <double>500000.000000000000000</double>
-        </property>
-        <property name="singleStep">
-         <double>0.010000000000000</double>
-        </property>
-       </widget>
-      </item>
-      <item row="2" column="0">
-       <widget class="QLabel" name="label_22">
-        <property name="text">
-         <string>Range</string>
-        </property>
-       </widget>
-      </item>
       <item row="2" column="1">
-       <widget class="QComboBox" name="Sweep_cb">
+       <widget class="QComboBox" name="Gain_cb">
+        <property name="currentIndex">
+         <number>4</number>
+        </property>
         <item>
          <property name="text">
           <string>+-10V</string>
@@ -294,10 +273,37 @@
         </item>
        </widget>
       </item>
+      <item row="2" column="0">
+       <widget class="QLabel" name="label_22">
+        <property name="text">
+         <string>Range</string>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="1">
+       <widget class="QSpinBox" name="ls_samp_freq_Input">
+        <property name="enabled">
+         <bool>true</bool>
+        </property>
+        <property name="minimum">
+         <number>5000</number>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QSpinBox" name="hs_samp_freq_Input">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="minimum">
+         <number>500000</number>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </widget>
-   <widget class="QPushButton" name="S2BIAS_Button">
+   <widget class="QPushButton" name="Reset_Button">
     <property name="geometry">
      <rect>
       <x>30</x>
@@ -377,14 +383,14 @@
       </widget>
      </item>
      <item row="2" column="1">
-      <widget class="QSpinBox" name="N_Taps_Input_2">
+      <widget class="QSpinBox" name="RTime_Input">
        <property name="maximum">
         <number>32</number>
        </property>
       </widget>
      </item>
      <item row="1" column="0" colspan="2">
-      <widget class="QPushButton" name="S2BIAS_Button_3">
+      <widget class="QPushButton" name="HSData_Button">
        <property name="enabled">
         <bool>false</bool>
        </property>
@@ -417,7 +423,7 @@
       </widget>
      </item>
      <item row="0" column="0" colspan="2">
-      <widget class="QPushButton" name="S2BIAS_Button_2">
+      <widget class="QPushButton" name="LSData_Button">
        <property name="text">
         <string>Take LS Data</string>
        </property>
@@ -443,63 +449,6 @@
        </property>
        <property name="flat">
         <bool>false</bool>
-       </property>
-      </widget>
-     </item>
-    </layout>
-   </widget>
-  </widget>
-  <widget class="QFrame" name="frame">
-   <property name="geometry">
-    <rect>
-     <x>240</x>
-     <y>10</y>
-     <width>181</width>
-     <height>41</height>
-    </rect>
-   </property>
-   <property name="frameShape">
-    <enum>QFrame::StyledPanel</enum>
-   </property>
-   <property name="frameShadow">
-    <enum>QFrame::Raised</enum>
-   </property>
-   <widget class="QWidget" name="horizontalLayoutWidget">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>10</y>
-      <width>151</width>
-      <height>25</height>
-     </rect>
-    </property>
-    <layout class="QHBoxLayout" name="horizontalLayout">
-     <item>
-      <widget class="QLabel" name="label_20">
-       <property name="layoutDirection">
-        <enum>Qt::RightToLeft</enum>
-       </property>
-       <property name="text">
-        <string>MJD</string>
-       </property>
-      </widget>
-     </item>
-     <item>
-      <widget class="QLCDNumber" name="MJDNumber">
-       <property name="frameShape">
-        <enum>QFrame::NoFrame</enum>
-       </property>
-       <property name="smallDecimalPoint">
-        <bool>false</bool>
-       </property>
-       <property name="numDigits">
-        <number>10</number>
-       </property>
-       <property name="segmentStyle">
-        <enum>QLCDNumber::Filled</enum>
-       </property>
-       <property name="value" stdset="0">
-        <double>510000.000000000000000</double>
        </property>
       </widget>
      </item>
