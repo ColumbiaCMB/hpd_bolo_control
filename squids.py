@@ -3,7 +3,7 @@ from bolo_adc import *
 from bolo_board import *
 from scipy import interpolate
 import collections
-#import dualscope
+from squids_gui import *
 
 class timestamp_match():
     def __init__(self):
@@ -36,52 +36,85 @@ class squids():
         self.setup_run()
 
     def setup_run(self):
-        self.bb.sa_bias_switch(True)
-        self.bb.set_voltage(2,1,3.6) #SSA BIAS
-        self.bb.set_voltage(2,2,0.05) #Offset
-        self.bb.set_switch(3,0,True) #SAFB (now input)
-        self.bb.set_switch(3,3,True) # FB
-        self.bb.set_switch(3,15,False) #short PI
+        self.bb.ssa_bias_switch(True)
+        #self.bb.set_voltage(3,1,3.6) #SSA BIAS
+        #self.bb.set_voltage(2,2,0.05) #Offset
+        #self.bb.set_switch(3,0,True) #SAFB (now input)
+        #self.bb.set_switch(3,3,True) # FB
+        #self.bb.set_switch(3,15,False) #short PI
 
 
-    def sweep(self,mux,channel,start,stop):
+    def wrapper_sweep_thread(self,name,start,stop,step=0.001,count=1,continuous=False):
+        self.sweep_thread = threading.Thread(target=self.sweep,
+                                             args=(name,start,stop,step,count,continuous))
+        self.sweep_thread.start()
+
+    def sweep(self,name,start,stop,step=0.001,count=1,continuous=False):
         #This takes data for the Series Array IV
         self.adc_data.start_data_logging(True) #start filling the data buffer
         #Setup a thread to do the sweep
-        sweep_thread = threading.Thread(target=self.bb.sweep_voltage,
-                                        args=(mux,channel,start,stop,0.001,1))
-        sweep_thread.start()
+        self.bb.wrapper_sweep_voltage(name,start,stop,step,count,False)
         
-        self.timestamp = []
-        self.ssa_in = []
-        self.ssa_out = []
-        while sweep_thread.isAlive():
-            if len(self.adc_data.ls_data) == 0 or len(self.bb.sweep_data) == 0:
+        self.x_cont = []
+        self.y_cont = []
+        self.s_ts_buffer = []
+        self.s_v_buffer = [] 
+        while self.bb.sweep_thread.isAlive():
+            if len(self.adc_data.ls_ts_data) == 0 or len(self.bb.sweep_ts_data) == 0:
                 time.sleep(0.1)
                 continue
-            #self.adc_data.adc_lock.acquire()
-            #temp_data = array(self.adc_data.ls_data)
-            #self.adc_data.ls_data.clear()
-            #self.adc_data.adc_lock.release()
+            if continuous is True:
+                #We have two buffers for the sweep data
+                #This gives us more points to match but 
+                #makes the code complicated
+
+                self.bb.data_lock.acquire()
+                self.s_ts_buffer.extend(self.bb.sweep_ts_data)
+                self.s_v_buffer.extend(self.bb.sweep_v_data)
+                self.bb.sweep_ts_data.clear()
+                self.bb.sweep_v_data.clear()
+                self.bb.data_lock.release()
+
+                self.adc_data.adc_lock.acquire()
+                temp_sa_data  = list(self.adc_data.ls_sa_data)
+                temp_ts_data  = list(self.adc_data.ls_ts_data)
+                self.adc_data.ls_sa_data.clear()
+                self.adc_data.ls_ts_data.clear()
+                self.adc_data.adc_lock.release()
+
+
+                f_int = interpolate.interp1d(self.s_ts_buffer, self.s_v_buffer,bounds_error=False)
+                x = f_int(temp_ts_data)
+                y = array(temp_sa_data)
+                  
+                ind = where(isfinite(x))
+                ind_remain = where(self.s_ts_buffer > temp_ts_data[-1])[0]
+
+                self.s_ts_buffer = array(self.s_ts_buffer)[ind_remain].tolist()
+                self.s_v_buffer = array(self.s_v_buffer)[ind_remain].tolist()
+
+                self.x_cont.extend(x[ind])
+                self.y_cont.extend(y[ind])
+            
         
-            #Ok for simplicity - Do something slow and dumb
-            #To create the data array of [timestamp,ssa_in,ssa_out]
-            #This is not conducive to memory usage or CPU but we create
-            #A lookup table of all the data all the time - quite dumb
-            #self.bb.data_lock.acquire()
-            #temp_sweep = array(self.bb.sweep_data)
-            #self.bb.data_lock.release()
-            #self.f_int = interpolate.interp1d(temp_sweep[:,0], temp_sweep[:,1], bounds_error=False)
-            #time.sleep(0.1)
         
-        stop_timer = self.adc_data.start_data_logging(False) #start filling the data buffer
+        stop_timer = self.adc_data.start_data_logging(False)
         stop_timer.join()
-        data = array(self.adc_data.ls_data)
-        sdata = array(self.bb.sweep_data)
-        f_int = interpolate.interp1d(sdata[:,0], sdata[:,1], bounds_error=False)
-        self.x = f_int(data[:,0])
-        self.y = data[:,1]
+        f_int = interpolate.interp1d(list(self.bb.sweep_ts_data), 
+                                     list(self.bb.sweep_v_data),
+                                     bounds_error=False)
+        x = f_int(self.adc_data.ls_ts_data)
+        y = array(self.adc_data.ls_sa_data)
+        #And  get rid of nans from the fitting
+        ind = where(isfinite(x))[0]        
+        self.x_cont = x[ind]
+        self.y_cont = y[ind]
 
     def __del__(self):
         del self.bb
         del self.adc_data
+
+    def launch_gui(self):
+        self.app = QtGui.QApplication(sys.argv)
+        self.gui = bolo_squids_gui(self)
+        self.gui.show()

@@ -9,8 +9,8 @@ import comedi as c
 from numpy import *
 from bolo_filtering import *
 from date_tools import *
+from pylab import mlab
 #from bolo_adc_gui import *
-#import dualscope
 
 import matplotlib
 #matplotlib.use('GTKAgg') # do this before importing pylab
@@ -33,14 +33,18 @@ class bolo_adcCommunicator():
         self.sa_uf = collections.deque(maxlen=max_buffer)
         self.sa_temp = collections.deque(maxlen=max_buffer) #For FIR filtering
         self.sa_ds =  collections.deque(maxlen=max_buffer)
-        self.ls_data = collections.deque() #timestamp with FIR delay
+        self.ls_sa_data = collections.deque() #logging buffer for sa
+        self.ls_fb_data = collections.deque() #logging buffer for fb
+        self.ls_ts_data = collections.deque() #logging buffer for ts
 
         self.timestamps = collections.deque(maxlen=max_buffer)
         self.ts_temp = collections.deque(maxlen=max_buffer)
         self.ts_ds =  collections.deque(maxlen=max_buffer)
 
-        self.fourier_freq = []
-        self.fourier_freq_ds = []
+        self.fourier_freq_fb = []
+        self.fourier_freq_fb_ds = []
+        self.fourier_freq_sa = []
+        self.fourier_freq_sa_ds = []
         self.fourier_sa =[]
         self.fourier_fb = []
         self.fourier_sa_ds = []
@@ -69,7 +73,7 @@ class bolo_adcCommunicator():
         self.fb_uf_chan = 2
         self.sa_uf_chan = 3
 
-        self.adc_gain = 3
+        self.adc_gain = 0
 
         self.ls_freq = 5000 #Low speed data taking frequency
         self.hs_freq = 500000 #High speed data taking frequency
@@ -131,9 +135,11 @@ class bolo_adcCommunicator():
         #Tell the code that you want some data
         #First clear the buffer
         if state is True:
-            self.data_lock.acquire()
-            self.ls_data.clear()
-            self.data_lock.release()
+            #self.data_lock.acquire()
+            self.ls_sa_data.clear()
+            self.ls_fb_data.clear()
+            self.ls_ts_data.clear()
+            #self.data_lock.release()
             self.collect_data_flag = True
         else:
             #because of various delays in the system
@@ -165,9 +171,12 @@ class bolo_adcCommunicator():
 
         self.filter_lock.release()
 
-        self.data_lock.acquire()
-        self.ls_data.clear()
-        self.data_lock.release()
+        #self.data_lock.acquire()
+        self.ls_sa_data.clear()
+        self.ls_fb_data.clear()
+        self.ls_ts_data.clear()
+
+        #self.data_lock.release()
 
 
     def get_ls_data(self,period):
@@ -269,27 +278,34 @@ class bolo_adcCommunicator():
                 if size(temp_sa) != size(temp_fb):
                     print len(self.sa_filt.offset),  len(self.fb_filt.offset)
 
-                for i in xrange(len(temp_fb)):
-                    #Think we need to do it like this maybe
-                    #Thre is a more efficient way
-                    #We only add data if the collect data flag is set
-                    if self.collect_data_flag is True:
-                        self.data_lock.acquire()
-                        self.ls_data.append([temp_ts[i],temp_sa[i],temp_fb[i]])
-                        self.data_lock.release()
+                if self.collect_data_flag is True:
+                    self.data_lock.acquire()
+                    self.ls_ts_data.extend(temp_ts)
+                    self.ls_sa_data.extend(temp_sa)
+                    self.ls_fb_data.extend(temp_fb)
+                    self.data_lock.release()
 
                 #print  datetime.datetime.utcnow() - self.adc_time
                 self.sa_ds.extend(temp_sa)
                 self.fb_ds.extend(temp_fb)
                 self.ts_ds.extend(temp_ts)
 
-                #And do some FFTs here is we need to - We have the time
-                self.fourier_freq = fft.fftfreq(len(self.sa),(1.0/self.ls_freq))
-                self.fourier_freq_ds = fft.fftfreq(len(self.sa_ds),(1.0/self.true_ds_freq))
-                self.fourier_sa = abs(fft.fft(self.sa))
-                self.fourier_fb = abs(fft.fft(self.fb))
-                self.fourier_sa_ds = abs(fft.fft(self.sa_ds))
-                self.fourier_fb_ds = abs(fft.fft(self.fb_ds))
+                #And do some FFTs here if we need to - We have the time
+                self.fourier_sa,self.fourier_freq_sa = mlab.psd(self.sa,
+                                                                NFFT=2056,Fs=self.ls_freq,
+                                                                detrend=mlab.detrend_linear)
+
+                self.fourier_fb,self.fourier_freq_fb = mlab.psd(self.fb,
+                                                                NFFT=2056,Fs=self.ls_freq,
+                                                                detrend=mlab.detrend_linear)
+
+                self.fourier_sa_ds,self.fourier_freq_sa_ds = mlab.psd(self.sa_ds,
+                                                                NFFT=512,Fs=self.true_ds_freq,
+                                                                detrend=mlab.detrend_linear)
+
+                self.fourier_fb_ds,self.fourier_freq_fb_ds = mlab.psd(self.fb_ds,
+                                                                NFFT=512,Fs=self.true_ds_freq,
+                                                                detrend=mlab.detrend_linear)
 
                 if first_pass is True:
                     first_pass = False
@@ -320,10 +336,10 @@ class bolo_adcCommunicator():
             temp_sa = self.convert_to_real(self.adc_gain,dd[:,1])
             #Here we assume that the first value is first channel
             if self.speed_flag == "ls":
-                self.data_lock.acquire()
+                #self.data_lock.acquire()
                 self.fb.extend(temp_fb)
                 self.sa.extend(temp_sa)
-                self.data_lock.release()
+                #self.data_lock.release()
                 self.filter_lock.acquire()
                 self.fb_temp.extend(temp_fb)
                 self.sa_temp.extend(temp_sa)
