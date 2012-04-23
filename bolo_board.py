@@ -362,7 +362,7 @@ class bolo_board():
                 self.sweep_v_data.append(v)
                 self.data_lock.release()
                 self.sweep_progress = self.sweep_progress + sweep_step
-                #time.sleep(0.001)
+                time.sleep(0.001)
             if loop is True:
                 for v in arange(stop,start,-step):
                     self.set_voltage(mux,channel,v)
@@ -371,7 +371,7 @@ class bolo_board():
                     self.sweep_v_data.append(v)
                     self.data_lock.release()
                     self.sweep_progress = self.sweep_progress + sweep_step
-                    #time.sleep(0.001)
+                    time.sleep(0.001)
         
         self.sweep_progress = -1 #For GUI 
 
