@@ -99,7 +99,8 @@ class bolo_board():
         #Just set switches to zero and then add to what is needed
         #We have four so just use array
         self.switch_state = [0,0,0,0]
-        self.sweep_data = collections.deque()
+        self.sweep_ts_data = collections.deque()
+        self.sweep_v_data = collections.deque()
         self.sweep_progress = 0 
 
         self.cf = cm.comedi_open("/dev/comedi0")
@@ -342,7 +343,8 @@ class bolo_board():
         #Calculate number of steps etc
 
         self.data_lock.acquire()
-        self.sweep_data.clear()
+        self.sweep_ts_data.clear()
+        self.sweep_v_data.clear()
         self.data_lock.release()
         
         nsteps = len(arange(start,stop,step))*count
@@ -356,18 +358,20 @@ class bolo_board():
             for v in arange(start,stop,step):
                 self.set_voltage(mux,channel,v)
                 self.data_lock.acquire()
-                self.sweep_data.append([mjdnow(),v])
+                self.sweep_ts_data.append(mjdnow())
+                self.sweep_v_data.append(v)
                 self.data_lock.release()
                 self.sweep_progress = self.sweep_progress + sweep_step
-                time.sleep(0.001)
+                #time.sleep(0.001)
             if loop is True:
                 for v in arange(stop,start,-step):
                     self.set_voltage(mux,channel,v)
                     self.data_lock.acquire()
-                    self.sweep_data.append([mjdnow(),v])
+                    self.sweep_ts_data.append(mjdnow())
+                    self.sweep_v_data.append(v)
                     self.data_lock.release()
                     self.sweep_progress = self.sweep_progress + sweep_step
-                    time.sleep(0.001)
+                    #time.sleep(0.001)
         
         self.sweep_progress = -1 #For GUI 
 
