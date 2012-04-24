@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import threading
 from bolo_adc import *
 from bolo_board import *
@@ -20,6 +21,9 @@ class squids():
         self.adc_data = bolo_adcCommunicator(10000)
         self.bb = bolo_board()
         self.setup_board()
+
+        self.x_cont = []
+        self.y_cont = []
 
     def setup_board(self):
         self.bb.zero_voltages()
@@ -44,12 +48,28 @@ class squids():
         #self.bb.set_switch(3,15,False) #short PI
 
 
-    def wrapper_sweep_thread(self,name,start,stop,step=0.001,count=1,continuous=False):
-        self.sweep_thread = threading.Thread(target=self.sweep,
-                                             args=(name,start,stop,step,count,continuous))
+    def ssa_VPhi_thread(self,fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps):
+        self.sweep_thread = threading.Thread(target=self.ssa_VPhi,
+                                             args = (fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps))
+
         self.sweep_thread.start()
 
-    def sweep(self,name,start,stop,step=0.001,count=1,continuous=False):
+    def ssa_VPhi(self,fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps):
+        #We do a number of sweeps of the feedback at different bias voltages
+        bias_steps = linspace(ssa_start,ssa_stop,n_steps)
+        for ssa_b in bias_steps:
+            print ssa_b
+            self.bb.ssa_bias_voltage(ssa_b)
+            #start the sweep thread and poll for when done
+            self.sweep("ssa_fb",fb_start,fb_stop,fb_step)
+            
+
+    def wrapper_sweep_thread(self,name,start,stop,step=0.001,count=1):
+        self.sweep_thread = threading.Thread(target=self.sweep,
+                                             args=(name,start,stop,step,count))
+        self.sweep_thread.start()
+
+    def sweep(self,name,start,stop,step=0.001,count=1):
         #This takes data for the Series Array IV
         self.adc_data.start_data_logging(True) #start filling the data buffer
         #Setup a thread to do the sweep
@@ -63,53 +83,40 @@ class squids():
             if len(self.adc_data.ls_ts_data) == 0 or len(self.bb.sweep_ts_data) == 0:
                 time.sleep(0.1)
                 continue
-            if continuous is True:
-                #We have two buffers for the sweep data
-                #This gives us more points to match but 
-                #makes the code complicated
+          
+            #We have two buffers for the sweep data
+            #This gives us more points to match but 
+            #makes the code complicated
 
-                self.bb.data_lock.acquire()
-                self.s_ts_buffer.extend(self.bb.sweep_ts_data)
-                self.s_v_buffer.extend(self.bb.sweep_v_data)
-                self.bb.sweep_ts_data.clear()
-                self.bb.sweep_v_data.clear()
-                self.bb.data_lock.release()
+            self.bb.data_lock.acquire()
+            self.s_ts_buffer.extend(self.bb.sweep_ts_data)
+            self.s_v_buffer.extend(self.bb.sweep_v_data)
+            self.bb.sweep_ts_data.clear()
+            self.bb.sweep_v_data.clear()
+            self.bb.data_lock.release()
 
-                self.adc_data.adc_lock.acquire()
-                temp_sa_data  = list(self.adc_data.ls_sa_data)
-                temp_ts_data  = list(self.adc_data.ls_ts_data)
-                self.adc_data.ls_sa_data.clear()
-                self.adc_data.ls_ts_data.clear()
-                self.adc_data.adc_lock.release()
+            self.adc_data.adc_lock.acquire()
+            temp_sa_data  = list(self.adc_data.ls_sa_data)
+            temp_ts_data  = list(self.adc_data.ls_ts_data)
+            self.adc_data.ls_sa_data.clear()
+            self.adc_data.ls_ts_data.clear()
+            self.adc_data.adc_lock.release()
 
+            f_int = interpolate.interp1d(self.s_ts_buffer, self.s_v_buffer,bounds_error=False)
+            x = f_int(temp_ts_data)
+            y = array(temp_sa_data)
 
-                f_int = interpolate.interp1d(self.s_ts_buffer, self.s_v_buffer,bounds_error=False)
-                x = f_int(temp_ts_data)
-                y = array(temp_sa_data)
-                  
-                ind = where(isfinite(x))
-                ind_remain = where(self.s_ts_buffer > temp_ts_data[-1])[0]
+            ind = where(isfinite(x))
+            ind_remain = where(self.s_ts_buffer > temp_ts_data[-1])[0]
 
-                self.s_ts_buffer = array(self.s_ts_buffer)[ind_remain].tolist()
-                self.s_v_buffer = array(self.s_v_buffer)[ind_remain].tolist()
+            self.s_ts_buffer = array(self.s_ts_buffer)[ind_remain].tolist()
+            self.s_v_buffer = array(self.s_v_buffer)[ind_remain].tolist()
 
-                self.x_cont.extend(x[ind])
-                self.y_cont.extend(y[ind])
-            
-        
+            self.x_cont.extend(x[ind])
+            self.y_cont.extend(y[ind])
         
         stop_timer = self.adc_data.start_data_logging(False)
-        stop_timer.join()
-        f_int = interpolate.interp1d(list(self.bb.sweep_ts_data), 
-                                     list(self.bb.sweep_v_data),
-                                     bounds_error=False)
-        x = f_int(self.adc_data.ls_ts_data)
-        y = array(self.adc_data.ls_sa_data)
-        #And  get rid of nans from the fitting
-        ind = where(isfinite(x))[0]        
-        self.x_cont = x[ind]
-        self.y_cont = y[ind]
-
+    
     def __del__(self):
         del self.bb
         del self.adc_data
@@ -118,3 +125,8 @@ class squids():
         self.app = QtGui.QApplication(sys.argv)
         self.gui = bolo_squids_gui(self)
         self.gui.show()
+
+if __name__ == "__main__":
+    squids = squids()
+    squids.launch_gui()
+    sys.exit(squids.app.exec_())

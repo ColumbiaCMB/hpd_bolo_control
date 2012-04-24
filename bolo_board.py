@@ -425,8 +425,8 @@ class bolo_board():
 
     def write_register(self,name,value):
         self.registers[name] = value
-        self.cur.execute("INSERT OR REPLACE INTO Registers VALUES (null,?,?)", (name,value))
-        self.con.commit()
+        #self.cur.execute("INSERT OR REPLACE INTO Registers VALUES (null,?,?)", (name,value))
+        #self.con.commit()
 
     def setup_db(self):
             self.cur.execute("DROP TABLE IF EXISTS Registers")
