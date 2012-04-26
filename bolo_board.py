@@ -203,7 +203,7 @@ class bolo_board():
             self.set_switch(1,0,False) #Set it
             self.set_switch(self.rs_32[0],self.rs_32[1],False)
 
-    def rs_switch(self,state):
+    def s1_bias_switch(self,state):
         #RS channel should be stored in register
         if state is True:
             self.rs_channel(self.registers["rs_channel"])

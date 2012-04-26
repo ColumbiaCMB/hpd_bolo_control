@@ -10,7 +10,7 @@ from numpy import *
 from bolo_filtering import *
 from date_tools import *
 from pylab import mlab
-#from bolo_adc_gui import *
+from bolo_adc_gui import *
 
 import matplotlib
 #matplotlib.use('GTKAgg') # do this before importing pylab
@@ -73,7 +73,7 @@ class bolo_adcCommunicator():
         self.fb_uf_chan = 2
         self.sa_uf_chan = 3
 
-        self.adc_gain = 0
+        self.adc_gain = 4
 
         self.ls_freq = 5000 #Low speed data taking frequency
         self.hs_freq = 500000 #High speed data taking frequency

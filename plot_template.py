@@ -16,6 +16,7 @@ class plot_template(QtGui.QWidget):
         self.setupUi()
         self.setupDefaults()
         self.setupZoomers()
+        self.setup_legend()
         self.setup_plots()
         self.setup_slots()
 
@@ -85,6 +86,12 @@ class plot_template(QtGui.QWidget):
             self.plot_region.canvas())
         self.picker.setRubberBandPen(Qt.QPen(Qt.Qt.green))
         self.picker.setTrackerPen(Qt.QPen(Qt.Qt.cyan))
+
+    def setup_legend(self):
+        self.legend  = Qwt.QwtLegend()
+        self.legend.setFrameStyle(Qt.QFrame.Box | Qt.QFrame.Sunken)
+        self.legend.setItemMode(Qwt.QwtLegend.ClickableItem)
+        self.plot_region.insertLegend(self.legend, Qwt.QwtPlot.BottomLegend)
 
     def setup_plots(self):
         #Note we don't setup any curves here - that is the job of the

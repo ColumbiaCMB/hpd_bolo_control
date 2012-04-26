@@ -19,11 +19,14 @@ class timestamp_match():
 class squids():
     def __init__(self):
         self.adc_data = bolo_adcCommunicator(10000)
+        self.sweep_thread = threading.Thread()
         self.bb = bolo_board()
         self.setup_board()
 
         self.x_cont = []
         self.y_cont = []
+        self.VPhi_data_x = {}
+        self.VPhi_data_y = {}
 
     def setup_board(self):
         self.bb.zero_voltages()
@@ -51,28 +54,44 @@ class squids():
     def ssa_VPhi_thread(self,fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps):
         self.sweep_thread = threading.Thread(target=self.ssa_VPhi,
                                              args = (fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps))
-
+        self.sweep_thread.daemon = True
         self.sweep_thread.start()
 
     def ssa_VPhi(self,fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps):
         #We do a number of sweeps of the feedback at different bias voltages
         bias_steps = linspace(ssa_start,ssa_stop,n_steps)
+        self.VPhi_data_x = {}
+        self.VPhi_data_y = {}
+        self.adc_data.start_data_logging(True) #start filling the data buffer
         for ssa_b in bias_steps:
             print ssa_b
             self.bb.ssa_bias_voltage(ssa_b)
             #start the sweep thread and poll for when done
             self.sweep("ssa_fb",fb_start,fb_stop,fb_step)
-            
+            self.VPhi_data_x[ssa_b] = self.x_cont
+            self.VPhi_data_y[ssa_b] = self.y_cont
+        
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
+
+    def ssa_iv_thread(self,ssa_start,ssa_stop,ssa_step,count):
+         self.sweep_thread = threading.Thread(target=self.ssa_iv,
+                                             args = (ssa_start,ssa_stop,ssa_step,count))
+         self.sweep_thread.daemon = True
+         self.sweep_thread.start()
+
+    def ssa_iv(self,ssa_start,ssa_stop,ssa_step,count):
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        self.sweep("ssa_bias",ssa_start,ssa_stop,ssa_step)
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
 
     def wrapper_sweep_thread(self,name,start,stop,step=0.001,count=1):
         self.sweep_thread = threading.Thread(target=self.sweep,
                                              args=(name,start,stop,step,count))
+        self.sweep_thread.daemon = True
         self.sweep_thread.start()
 
     def sweep(self,name,start,stop,step=0.001,count=1):
-        #This takes data for the Series Array IV
-        self.adc_data.start_data_logging(True) #start filling the data buffer
-        #Setup a thread to do the sweep
+       #Sweep is now a low level function - you NEED to turn on loggin elsewhere
         self.bb.wrapper_sweep_voltage(name,start,stop,step,count,False)
         
         self.x_cont = []
@@ -80,7 +99,7 @@ class squids():
         self.s_ts_buffer = []
         self.s_v_buffer = [] 
         while self.bb.sweep_thread.isAlive():
-            if len(self.adc_data.ls_ts_data) == 0 or len(self.bb.sweep_ts_data) == 0:
+            if len(self.adc_data.ls_ts_data) < 2 or len(self.bb.sweep_ts_data) < 2:
                 time.sleep(0.1)
                 continue
           
@@ -114,9 +133,7 @@ class squids():
 
             self.x_cont.extend(x[ind])
             self.y_cont.extend(y[ind])
-        
-        stop_timer = self.adc_data.start_data_logging(False)
-    
+            
     def __del__(self):
         del self.bb
         del self.adc_data
