@@ -62,8 +62,12 @@ class sweep_widget(QtGui.QWidget):
         self.layout.addWidget(self.continuous_check,9,0,1,2)
 
         self.VIButton = QtGui.QPushButton("VI")
+        self.VIButton.setAutoDefault(False)
         self.VPhiButton = QtGui.QPushButton("VPhi")
+        self.VPhiButton.setAutoDefault(False)
         self.CancelButton = QtGui.QPushButton("Cancel")
+        self.CancelButton.setAutoDefault(False)
+
         self.layout.addWidget(self.VIButton,10,0,1,2)
         self.layout.addWidget(self.VPhiButton,11,0,1,2)
         self.layout.addWidget(self.CancelButton,12,0,1,2)
@@ -156,8 +160,66 @@ class bolo_squids_gui(QtGui.QDialog):
         self.s1_widget = sweep_widget(self.tabWidget)
         self.tabWidget.addTab(self.s1_widget, "S1")
         
+        #We also need a column for the SSA feedback PID loop
+        self.pid_group = QtGui.QGroupBox("SSA PID")
+        self.pid_layout = QtGui.QGridLayout()
+
+        self.P_label = QtGui.QLabel("P")
+        self.I_label = QtGui.QLabel("I")
+        self.D_label = QtGui.QLabel("D")
+        self.setpoint_label = QtGui.QLabel("Set")
+
+        self.P_Input = QtGui.QDoubleSpinBox()
+        self.P_Input.setRange(-2,2)
+        self.I_Input = QtGui.QDoubleSpinBox()
+        self.I_Input.setRange(-2,2)
+        self.D_Input = QtGui.QDoubleSpinBox()
+        self.D_Input.setRange(-2,2)
+        self.setpoint_Input = QtGui.QDoubleSpinBox()
+        self.setpoint_Input.setDecimals(3)
+
+        self.pid_layout.addWidget(self.P_label,0,0,1,1)
+        self.pid_layout.addWidget(self.I_label,1,0,1,1)
+        self.pid_layout.addWidget(self.D_label,2,0,1,1)
+        self.pid_layout.addWidget(self.setpoint_label,3,0,1,1)
+
+        self.pid_layout.addWidget(self.P_Input,0,1,1,1)
+        self.pid_layout.addWidget(self.I_Input,1,1,1,1)
+        self.pid_layout.addWidget(self.D_Input,2,1,1,1)
+        self.pid_layout.addWidget(self.setpoint_Input,3,1,1,1)
+
+        self.SSA_FB_Button = QtGui.QPushButton("SSA Feedback")
+        self.SSA_FB_Button.setCheckable(True)
+
+        self.pid_layout.addWidget(self.SSA_FB_Button,4,0,1,-1)
+
+        self.range_thermo = Qwt.QwtThermo()
+        self.range_thermo.setOrientation(Qt.Qt.Vertical,Qwt.QwtThermo.LeftScale)
+        self.range_thermo.setRange(-5.0,5.0)
+        self.pid_layout.addWidget(self.range_thermo,5,0,1,-1)
+
+        #Create a little group box with info
+        self.info_group = QtGui.QGroupBox()
+        self.info_layout = QtGui.QFormLayout()
+        self.set_label = small_text("setpoint","blue")
+        self.measure_label = small_text("measure","blue")
+        self.error_label = small_text("error","blue")
+
+        self.set_read_label = small_text("0.000","green")
+        self.measure_read_label = small_text("0.000","green")
+        self.error_read_label = small_text("0.000","red")
+
+        self.info_layout.addRow(self.set_label, self.set_read_label)
+        self.info_layout.addRow(self.measure_label, self.measure_read_label)
+        self.info_layout.addRow(self.error_label, self.error_read_label)
+        self.info_group.setLayout(self.info_layout)
+
+        self.pid_layout.addWidget(self.info_group,6,0,1,-1)
+        self.pid_group.setLayout(self.pid_layout)
+
         self.layout = QtGui.QHBoxLayout()
         self.layout.addWidget(self.tabWidget)
+        self.layout.addWidget(self.pid_group)
         self.setLayout(self.layout)
 
     def setup_curve(self):    
@@ -171,6 +233,12 @@ class bolo_squids_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.ssa_widget.VPhiButton,QtCore.SIGNAL("clicked()"), self.run_ssa_VPhi)
         QtCore.QObject.connect(self.plot_timer, QtCore.SIGNAL("timeout()"), self.update_plots)
         QtCore.QObject.connect(self.check_timer, QtCore.SIGNAL("timeout()"), self.check_status)
+        QtCore.QObject.connect(self.SSA_FB_Button,QtCore.SIGNAL("toggled(bool)"), self.run_ssa_feedback)
+        QtCore.QObject.connect(self.P_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setKp)
+        QtCore.QObject.connect(self.I_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setKi)
+        QtCore.QObject.connect(self.D_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setKd)
+        QtCore.QObject.connect(self.setpoint_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setPoint)
+
 
     def update_plots(self):
         if self.run_job == self.run_type["ssa_iv"]:
@@ -190,6 +258,23 @@ class bolo_squids_gui(QtGui.QDialog):
             #And also update the current curve
             self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
             self.ssa_widget.ssa_plot.plot_region.replot()
+        #Update the status of the PID loop
+        self.set_read_label.setText(str(self.p.pid.getPoint()))
+        meas_size = len(self.p.adc_data.sa_ds) - 1
+        meas_data = "%4.3f" % self.p.adc_data.sa_ds[meas_size]
+        self.measure_read_label.setText(meas_data)
+        error_data = "%4.3f" % self.p.pid.getError()
+        self.error_read_label.setText(error_data)
+        self.range_thermo.setValue(self.p.bb.registers["ssa_fb_voltage"])
+
+    def run_ssa_feedback(self,state):
+        #This starts the feedback loop on the SSA
+        setpoint = self.setpoint_Input.value()
+        P = self.P_Input.value()
+        I = self.I_Input.value()
+        D = self.D_Input.value()
+
+        self.p.ssa_feedback_thread(setpoint,P,I,D)
 
     def check_status(self):
         #Simply check if the sweep_thread is alive 
@@ -226,3 +311,12 @@ class bolo_squids_gui(QtGui.QDialog):
                                     self.ssa_widget.bias_step_Input.value(),
                                     count)
         
+
+class small_text(QtGui.QLabel):
+     def __init__(self,text,color,gui_parent=None):
+        QtGui.QLabel.__init__(self, gui_parent)
+        self.setText(text)
+        self.setFont(QtGui.QFont( "lucida", 10 ));
+        color_string = "QLabel {color : %s;}" % color
+        self.setStyleSheet(color_string);
+

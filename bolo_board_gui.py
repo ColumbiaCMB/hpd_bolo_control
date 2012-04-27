@@ -375,3 +375,4 @@ class bolo_doubleInput(QtGui.QDoubleSpinBox):
         self.setDecimals(3)
         self.setSingleStep(0.001)
 
+   

@@ -5,6 +5,8 @@ from bolo_board import *
 from scipy import interpolate
 import collections
 from squids_gui import *
+from bolo_board_gui import *
+import pid
 
 class timestamp_match():
     def __init__(self):
@@ -22,6 +24,7 @@ class squids():
         self.sweep_thread = threading.Thread()
         self.bb = bolo_board()
         self.setup_board()
+        self.pid = pid.PID()
 
         self.x_cont = []
         self.y_cont = []
@@ -41,6 +44,27 @@ class squids():
         self.scope_data = collections.deque()
 
         self.setup_run()
+
+    ## This controlls the feedback on the SSA fb
+    # channel for tuning send and first stage squids
+    # @param self The object pointer
+    # @param setpoint Where we want to lock at
+    # @param state turn on and off
+    def SSA_feedback(self, setpoint,P=2.0,I=0.5,D=0):
+        self.pid.setPoint(setpoint)
+        while(1):
+            #We use SA_ds as measure
+            pid_out = self.pid.update(self.adc_data.sa_ds[-1])
+            new_voltage = self.bb.registers["ssa_fb_voltage"] - pid_out
+            self.bb.ssa_fb_voltage(new_voltage)
+            time.sleep(0.01)
+
+    def ssa_feedback_thread(self,setpoint,P=2.0,I=0.5,D=0):
+        self.feedback_thread = threading.Thread(target=self.SSA_feedback,
+                                                args = (setpoint,P,I,D))
+                                               
+        self.feedback_thread.daemon = True
+        self.feedback_thread.start()
 
     def setup_run(self):
         self.bb.ssa_bias_switch(True)
@@ -142,6 +166,15 @@ class squids():
         self.app = QtGui.QApplication(sys.argv)
         self.gui = bolo_squids_gui(self)
         self.gui.show()
+
+    def launch_all_gui(self):
+        self.app = QtGui.QApplication(sys.argv)
+        self.gui = bolo_squids_gui(self)
+        self.bb_gui = bolo_board_gui(self.bb,self.gui)
+        self.adc_gui = bolo_adc_gui(self.adc_data,self.gui)
+        self.gui.show()
+        self.bb_gui.show()
+        self.adc_gui.show()
 
 if __name__ == "__main__":
     squids = squids()

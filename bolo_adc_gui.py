@@ -54,11 +54,11 @@ class bolo_adc_gui(QtGui.QDialog):
         self.ui = Ui_ADC_control()
         self.ui.setupUi(self)
         self.plot_timer = QtCore.QTimer()
-
         self.setup_plots()
         self.setup_picker()
         self.setup_zooms()
         self.setup_slots()
+        self.plot_timer.start(100)
 
 
     def setup_plots(self):
@@ -186,7 +186,6 @@ class bolo_adc_gui(QtGui.QDialog):
         if state is False:
             self.p.comedi_reset()
         else:
-            self.plot_timer.start(100)
             time = self.ui.RTime_Input.value()
             self.p.get_ls_data(time)
 

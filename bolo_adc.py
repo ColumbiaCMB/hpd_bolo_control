@@ -378,6 +378,7 @@ class bolo_adcCommunicator():
         real_volts = -v_range + volts_per_bit*data
         return -real_volts
 
+
     def comedi_reset(self):
         #First stop  the command
         self.collect_data_stop()
