@@ -1,7 +1,7 @@
 from PyQt4 import QtCore, QtGui,Qt
 from plot_template import plot_template
 import PyQt4.Qwt5 as Qwt
-from numpy import arange,sqrt
+from numpy import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -135,6 +135,7 @@ class bolo_squids_gui(QtGui.QDialog):
 
         self.p = parent
         self.setupUi()
+        self.setup_marker()
         self.plot_timer = QtCore.QTimer()
         self.check_timer = QtCore.QTimer() #Used to check if sweeps are still running
 
@@ -169,14 +170,14 @@ class bolo_squids_gui(QtGui.QDialog):
         self.D_label = QtGui.QLabel("D")
         self.setpoint_label = QtGui.QLabel("Set")
 
-        self.P_Input = QtGui.QDoubleSpinBox()
-        self.P_Input.setRange(-2,2)
-        self.I_Input = QtGui.QDoubleSpinBox()
-        self.I_Input.setRange(-2,2)
-        self.D_Input = QtGui.QDoubleSpinBox()
-        self.D_Input.setRange(-2,2)
-        self.setpoint_Input = QtGui.QDoubleSpinBox()
-        self.setpoint_Input.setDecimals(3)
+        self.P_Input = bolo_doubleInput()
+        self.I_Input = bolo_doubleInput()
+        self.D_Input = bolo_doubleInput()
+        self.setpoint_Input = bolo_doubleInput()
+        self.wire_res_Input = bolo_doubleInput()
+        self.wire_res_Input.setRange(0,5000)
+        self.wire_res_Input.setDecimals(1)
+        self.wire_res_Input.setSingleStep(0.1)
 
         self.pid_layout.addWidget(self.P_label,0,0,1,1)
         self.pid_layout.addWidget(self.I_label,1,0,1,1)
@@ -215,6 +216,8 @@ class bolo_squids_gui(QtGui.QDialog):
         self.info_group.setLayout(self.info_layout)
 
         self.pid_layout.addWidget(self.info_group,6,0,1,-1)
+        self.pid_layout.addWidget(self.wire_res_Input,7,1,1,1)
+
         self.pid_group.setLayout(self.pid_layout)
 
         self.layout = QtGui.QHBoxLayout()
@@ -222,15 +225,27 @@ class bolo_squids_gui(QtGui.QDialog):
         self.layout.addWidget(self.pid_group)
         self.setLayout(self.layout)
 
+    def setup_marker(self):
+        self.fb_marker = Qwt.QwtPlotMarker()
+        self.fb_marker.setLineStyle(Qwt.QwtPlotMarker.Cross)
+        #self.fb_marker.setLabelAlignment(Qt.Qt.AlignRight | Qt.Qt.AlignBottom)
+        self.fb_marker.setLinePen(Qt.QPen(Qt.Qt.red))
+
     def setup_curve(self):    
         self.vphi_curves = {} 
         self.ssa_current_curve = Qwt.QwtPlotCurve("Data")
         self.ssa_current_curve.attach(self.ssa_widget.ssa_plot.plot_region)
         self.ssa_current_curve.setPen(Qt.QPen(Qt.Qt.yellow))
 
+        self.s2_current_curve = Qwt.QwtPlotCurve("S2 Data")
+        self.s2_current_curve.attach(self.ssa_widget.ssa_plot.plot_region)
+        self.s2_current_curve.setPen(Qt.QPen(Qt.Qt.magenta))
+
+
     def setup_slots(self):
         QtCore.QObject.connect(self.ssa_widget.VIButton,QtCore.SIGNAL("clicked()"), self.run_ssa_VI)
         QtCore.QObject.connect(self.ssa_widget.VPhiButton,QtCore.SIGNAL("clicked()"), self.run_ssa_VPhi)
+        QtCore.QObject.connect(self.s2_widget.VPhiButton,QtCore.SIGNAL("clicked()"), self.run_s2_test)
         QtCore.QObject.connect(self.plot_timer, QtCore.SIGNAL("timeout()"), self.update_plots)
         QtCore.QObject.connect(self.check_timer, QtCore.SIGNAL("timeout()"), self.check_status)
         QtCore.QObject.connect(self.SSA_FB_Button,QtCore.SIGNAL("toggled(bool)"), self.run_ssa_feedback)
@@ -239,11 +254,48 @@ class bolo_squids_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.D_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setKd)
         QtCore.QObject.connect(self.setpoint_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setPoint)
 
+    def fudge_wire_res(self,vin,vout,ssa_bias_v=False,ssa_bias_correction=False):
+        ##This is a dummy function that needs to get made into a class
+        #For correcting wire resistancies etc
 
+        R_in = self.wire_res_Input.value()
+        R_gnd = 1.0/(4.0/self.wire_res_Input.value())
+        R_SSA_bias = 30.1e3 #Just the bias resister
+        R_SSA_int = 0.8 #the series resisters inside the SSA
+        R_SSA_fb = 24.9e3 + 1e3 #Bias plus 1k internal
+        G_amp = 22.0 #amplifier gain
+
+        #Some useful totals
+        R_SSA_bias_total = R_SSA_bias + R_SSA_int + R_in +R_gnd
+        R_SSA_fb_total = R_SSA_fb + R_gnd
+        R_SSA_bias_internal = R_in + R_gnd
+        R_SSA_fb_internal = R_gnd
+
+        #If we are correcting for SSA_BIAS - i.e. for IV
+        #Then ssa_bias_correction is True
+        if ssa_bias_correction is True:
+            current = array(vin)/R_SSA_bias_total
+            v_drop = G_amp*R_SSA_bias_internal*current
+            print current[-1],v_drop[-1]
+        else:
+            #We are probably correcting for the feedback
+            current = array(vin)/R_SSA_fb_total
+            v_drop = G_amp*R_SSA_fb_internal*current
+        if ssa_bias_v is not False:
+            #Correct also for the SSA_Bias (non-changing) voltage
+            current = ssa_bias_v/R_SSA_bias_total
+            v_drop_static = G_amp*R_SSA_bias_internal*current
+        else:
+            v_drop_static = 0
+
+        ssa_out = array(vout)-v_drop -v_drop_static
+        return ssa_out
+        
     def update_plots(self):
-        if self.run_job == self.run_type["ssa_iv"]:
-            self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
-            self.ssa_widget.ssa_plot.plot_region.replot()
+        if self.run_job == self.run_type["ssa_iv"]: 
+            #Big fudge here of VI!!!!
+            ssa_v = self.fudge_wire_res(self.p.x_cont,self.p.y_cont,ssa_bias_correction=True)
+            self.ssa_current_curve.setData(self.p.x_cont,ssa_v)
         elif self.run_job == self.run_type["ssa_vphi"]:
             #Do dumb thing and update each curve
             #if available - burn those cpu cycles
@@ -253,28 +305,51 @@ class bolo_squids_gui(QtGui.QDialog):
                     self.vphi_curves[s_bias].attach(self.ssa_widget.ssa_plot.plot_region)
                     color_index = len(self.vphi_curves) % len(self.good_colors)
                     self.vphi_curves[s_bias].setPen(self.good_colors[color_index])
-                    self.vphi_curves[s_bias].setData(list(self.p.VPhi_data_x[s_bias]),list(self.p.VPhi_data_y[s_bias])) 
+                    #apply correction
+                    ssa_v = self.fudge_wire_res(self.p.VPhi_data_x[s_bias],
+                                                self.p.VPhi_data_y[s_bias],
+                                               ssa_bias_v=self.p.bb.registers["ssa_bias_voltage"])
+                    self.vphi_curves[s_bias].setData(list(self.p.VPhi_data_x[s_bias]),ssa_v)
 
             #And also update the current curve
-            self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
-            self.ssa_widget.ssa_plot.plot_region.replot()
+            ssa_v = self.fudge_wire_res(self.p.x_cont,
+                                        self.p.y_cont,
+                                        ssa_bias_v=self.p.bb.registers["ssa_bias_voltage"])
+            self.ssa_current_curve.setData(self.p.x_cont,ssa_v)
+
         #Update the status of the PID loop
-        self.set_read_label.setText(str(self.p.pid.getPoint()))
-        meas_size = len(self.p.adc_data.sa_ds) - 1
-        meas_data = "%4.3f" % self.p.adc_data.sa_ds[meas_size]
+        setpoint_data = "%+4.3f" % self.p.pid.getPoint()
+        self.set_read_label.setText(setpoint_data)
+        #meas_size = len(self.p.adc_data.sa_ds) - 1
+        meas_data = "%+4.3f" % self.p.adc_data.sa[-1]
         self.measure_read_label.setText(meas_data)
-        error_data = "%4.3f" % self.p.pid.getError()
+        error_data = "%+4.3f" % self.p.pid.getError()
         self.error_read_label.setText(error_data)
         self.range_thermo.setValue(self.p.bb.registers["ssa_fb_voltage"])
 
+        if self.SSA_FB_Button.isChecked():
+            self.fb_marker.setValue(self.p.bb.registers["ssa_fb_voltage"],
+                                    self.p.adc_data.sa[-1])
+            
+
+        if self.run_job == self.run_type["s2_vphi"]:
+            self.s2_current_curve.setData(self.p.s2_data_x,self.p.s2_data_y)
+        #always replot
+        self.ssa_widget.ssa_plot.plot_region.replot()
+
     def run_ssa_feedback(self,state):
         #This starts the feedback loop on the SSA
-        setpoint = self.setpoint_Input.value()
-        P = self.P_Input.value()
-        I = self.I_Input.value()
-        D = self.D_Input.value()
+        if state is True:
+            setpoint = self.setpoint_Input.value()
+            P = self.P_Input.value()
+            I = self.I_Input.value()
+            D = self.D_Input.value()
 
-        self.p.ssa_feedback_thread(setpoint,P,I,D)
+            self.p.ssa_feedback_thread(setpoint,P,I,D)
+            self.fb_marker.attach(self.ssa_widget.ssa_plot.plot_region)
+        else:
+            self.fb_marker.detach()
+            self.p.pid_event.set()
 
     def check_status(self):
         #Simply check if the sweep_thread is alive 
@@ -283,6 +358,13 @@ class bolo_squids_gui(QtGui.QDialog):
         self.ssa_widget.set_disable_all(state)
         self.s2_widget.set_disable_all(state)
         self.s1_widget.set_disable_all(state)
+
+    def run_s2_test(self):
+        self.setup_curve()
+        self.run_job = self.run_type["s2_vphi"]
+        self.p.s2_bias_test_thread(self.s2_widget.fb_start_Input.value(),
+                        self.s2_widget.fb_stop_Input.value(),
+                        self.s2_widget.fb_step_Input.value())
 
     def run_ssa_VPhi(self):
         self.ssa_widget.ssa_plot.plot_region.clear()
@@ -320,3 +402,10 @@ class small_text(QtGui.QLabel):
         color_string = "QLabel {color : %s;}" % color
         self.setStyleSheet(color_string);
 
+class bolo_doubleInput(QtGui.QDoubleSpinBox):
+    def __init__(self,gui_parent=None):
+        QtGui.QDoubleSpinBox.__init__(self, gui_parent)
+
+        self.setRange(-2,2)
+        self.setDecimals(3)
+        self.setSingleStep(0.001)

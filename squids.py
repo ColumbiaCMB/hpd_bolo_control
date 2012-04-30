@@ -7,7 +7,7 @@ import collections
 from squids_gui import *
 from bolo_board_gui import *
 import pid
-
+from numpy import mean
 class timestamp_match():
     def __init__(self):
         pass
@@ -25,9 +25,12 @@ class squids():
         self.bb = bolo_board()
         self.setup_board()
         self.pid = pid.PID()
+        self.pid_event = threading.Event()
 
         self.x_cont = []
         self.y_cont = []
+        self.s2_data_x = []
+        self.s2_data_y = []
         self.VPhi_data_x = {}
         self.VPhi_data_y = {}
 
@@ -50,20 +53,25 @@ class squids():
     # @param self The object pointer
     # @param setpoint Where we want to lock at
     # @param state turn on and off
-    def SSA_feedback(self, setpoint,P=2.0,I=0.5,D=0):
+    def SSA_feedback(self, setpoint,P=0.01,I=0,D=0):
+        self.pid.setKp(P)
+        self.pid.setKi(I)
+        self.pid.setKd(D)
+        self.pid.setOffset(self.bb.registers["ssa_fb_voltage"])
         self.pid.setPoint(setpoint)
-        while(1):
+        while not self.pid_event.isSet():
             #We use SA_ds as measure
-            pid_out = self.pid.update(self.adc_data.sa_ds[-1])
-            new_voltage = self.bb.registers["ssa_fb_voltage"] - pid_out
+            pid_out = self.pid.update(self.adc_data.sa[-1])
+            new_voltage = pid_out
             self.bb.ssa_fb_voltage(new_voltage)
-            time.sleep(0.01)
+            time.sleep(0.001)
 
-    def ssa_feedback_thread(self,setpoint,P=2.0,I=0.5,D=0):
+    def ssa_feedback_thread(self,setpoint,P=0.01,I=0.0,D=0):
         self.feedback_thread = threading.Thread(target=self.SSA_feedback,
                                                 args = (setpoint,P,I,D))
                                                
         self.feedback_thread.daemon = True
+        self.pid_event.clear()
         self.feedback_thread.start()
 
     def setup_run(self):
@@ -74,6 +82,33 @@ class squids():
         #self.bb.set_switch(3,3,True) # FB
         #self.bb.set_switch(3,15,False) #short PI
 
+    def s2_bias_test_thread(self,fb_start,fb_stop,fb_step):
+        self.sweep_thread = threading.Thread(target=self.s2_bias_test,
+                                             args = (fb_start,fb_stop,fb_step))
+        self.sweep_thread.daemon = True
+        self.sweep_thread.start()
+
+    def s2_bias_test(self,fb_start,fb_stop,fb_step):
+        #Quick and dirty test of doing a sweep on the S2_stage Using feedback
+        #Assumes feedback is running
+        self.s2_data_x = []
+        self.s2_data_y = []
+
+        #So we set a sweep point and go from there - Can not handle quick changes
+        bias_steps = arange(fb_start,fb_stop,fb_step)
+        for fb_s in bias_steps:
+            print fb_s
+            #first set the position
+            self.bb.s2_bias_voltage(fb_s)
+            time.sleep(0.1)
+            #And we now wait until the error is zero
+            while(self.pid.getError() > 0.001):
+                time.sleep(0.01)
+
+            #Ok should be where we want - now record
+            self.s2_data_x.append(fb_s)
+            self.s2_data_y.append(self.bb.registers["ssa_fb_voltage"])
+        
 
     def ssa_VPhi_thread(self,fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps):
         self.sweep_thread = threading.Thread(target=self.ssa_VPhi,
@@ -90,6 +125,8 @@ class squids():
         for ssa_b in bias_steps:
             print ssa_b
             self.bb.ssa_bias_voltage(ssa_b)
+            #self.bb.s2_bias_voltage(ssa_b) 
+            #print "REMEMBER TO CHANGE BACK THE BIAS VOLTAGE HERE"
             #start the sweep thread and poll for when done
             self.sweep("ssa_fb",fb_start,fb_stop,fb_step)
             self.VPhi_data_x[ssa_b] = self.x_cont
@@ -178,5 +215,5 @@ class squids():
 
 if __name__ == "__main__":
     squids = squids()
-    squids.launch_gui()
+    squids.launch_all_gui()
     sys.exit(squids.app.exec_())

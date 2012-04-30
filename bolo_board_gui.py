@@ -176,6 +176,7 @@ class bolo_board_gui(QtGui.QDialog):
         self.ssa_bias_Input =  bolo_doubleInput()
         self.ssa_fb_Input = bolo_doubleInput()
         self.s2_bias_Input = bolo_doubleInput()
+        self.s2_bias_Input.setSingleStep(0.01)
         self.s2_fb_Input = bolo_doubleInput()
         self.s1_bias_Input = bolo_doubleInput()
         self.s1_fb_Input = bolo_doubleInput()
