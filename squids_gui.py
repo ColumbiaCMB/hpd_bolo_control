@@ -254,48 +254,9 @@ class bolo_squids_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.D_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setKd)
         QtCore.QObject.connect(self.setpoint_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setPoint)
 
-    def fudge_wire_res(self,vin,vout,ssa_bias_v=False,ssa_bias_correction=False):
-        ##This is a dummy function that needs to get made into a class
-        #For correcting wire resistancies etc
-
-        R_in = self.wire_res_Input.value()
-        R_gnd = 1.0/(4.0/self.wire_res_Input.value())
-        R_SSA_bias = 30.1e3 #Just the bias resister
-        R_SSA_int = 0.8 #the series resisters inside the SSA
-        R_SSA_fb = 24.9e3 + 1e3 #Bias plus 1k internal
-        G_amp = 22.0 #amplifier gain
-
-        #Some useful totals
-        R_SSA_bias_total = R_SSA_bias + R_SSA_int + R_in +R_gnd
-        R_SSA_fb_total = R_SSA_fb + R_gnd
-        R_SSA_bias_internal = R_in + R_gnd
-        R_SSA_fb_internal = R_gnd
-
-        #If we are correcting for SSA_BIAS - i.e. for IV
-        #Then ssa_bias_correction is True
-        if ssa_bias_correction is True:
-            current = array(vin)/R_SSA_bias_total
-            v_drop = G_amp*R_SSA_bias_internal*current
-            print current[-1],v_drop[-1]
-        else:
-            #We are probably correcting for the feedback
-            current = array(vin)/R_SSA_fb_total
-            v_drop = G_amp*R_SSA_fb_internal*current
-        if ssa_bias_v is not False:
-            #Correct also for the SSA_Bias (non-changing) voltage
-            current = ssa_bias_v/R_SSA_bias_total
-            v_drop_static = G_amp*R_SSA_bias_internal*current
-        else:
-            v_drop_static = 0
-
-        ssa_out = array(vout)-v_drop -v_drop_static
-        return ssa_out
-        
     def update_plots(self):
         if self.run_job == self.run_type["ssa_iv"]: 
-            #Big fudge here of VI!!!!
-            ssa_v = self.fudge_wire_res(self.p.x_cont,self.p.y_cont,ssa_bias_correction=True)
-            self.ssa_current_curve.setData(self.p.x_cont,ssa_v)
+            self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
         elif self.run_job == self.run_type["ssa_vphi"]:
             #Do dumb thing and update each curve
             #if available - burn those cpu cycles
@@ -306,16 +267,12 @@ class bolo_squids_gui(QtGui.QDialog):
                     color_index = len(self.vphi_curves) % len(self.good_colors)
                     self.vphi_curves[s_bias].setPen(self.good_colors[color_index])
                     #apply correction
-                    ssa_v = self.fudge_wire_res(self.p.VPhi_data_x[s_bias],
-                                                self.p.VPhi_data_y[s_bias],
-                                               ssa_bias_v=self.p.bb.registers["ssa_bias_voltage"])
-                    self.vphi_curves[s_bias].setData(list(self.p.VPhi_data_x[s_bias]),ssa_v)
+                
+                    self.vphi_curves[s_bias].setData(list(self.p.VPhi_data_x[s_bias]),
+                                                     list(self.p.VPhi_data_y[s_bias]))
 
             #And also update the current curve
-            ssa_v = self.fudge_wire_res(self.p.x_cont,
-                                        self.p.y_cont,
-                                        ssa_bias_v=self.p.bb.registers["ssa_bias_voltage"])
-            self.ssa_current_curve.setData(self.p.x_cont,ssa_v)
+            self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
 
         #Update the status of the PID loop
         setpoint_data = "%+4.3f" % self.p.pid.getPoint()

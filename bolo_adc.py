@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 logging.basicConfig()
 
 class bolo_adcCommunicator():
-    def __init__(self,max_buffer=None):
+    def __init__(self,max_buffer=10000):
         self.logger = logging.getLogger('bolo_adc')
         self.logger.setLevel(logging.DEBUG)
         self.max_buffer = max_buffer
@@ -33,6 +33,7 @@ class bolo_adcCommunicator():
         self.sa_uf = collections.deque(maxlen=max_buffer)
         self.sa_temp = collections.deque(maxlen=max_buffer) #For FIR filtering
         self.sa_ds =  collections.deque(maxlen=max_buffer)
+
         self.ls_sa_data = collections.deque() #logging buffer for sa
         self.ls_fb_data = collections.deque() #logging buffer for fb
         self.ls_ts_data = collections.deque() #logging buffer for ts

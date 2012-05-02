@@ -8,6 +8,8 @@ from squids_gui import *
 from bolo_board_gui import *
 import pid
 from numpy import mean
+from resistance_comp import *
+
 class timestamp_match():
     def __init__(self):
         pass
@@ -19,11 +21,20 @@ class timestamp_match():
 
 
 class squids():
-    def __init__(self):
-        self.adc_data = bolo_adcCommunicator(10000)
+    def __init__(self,bolo_board=None,bolo_adc=None):
+        if bolo_adc is None:
+            self.adc_data = bolo_adcCommunicator()
+        else:
+            self.adc_data = bolo_adc
+
+        if bolo_board is None:
+            self.bb = bolo_board()
+        else:
+            self.bb = bolo_board
+        
+        self.setup_res_comp()
         self.sweep_thread = threading.Thread()
-        self.bb = bolo_board()
-        self.setup_board()
+
         self.pid = pid.PID()
         self.pid_event = threading.Event()
 
@@ -34,19 +45,11 @@ class squids():
         self.VPhi_data_x = {}
         self.VPhi_data_y = {}
 
-    def setup_board(self):
-        self.bb.zero_voltages()
-
-        self.bb.set_switch(3,2,False) #No external SA bias
-        self.bb.set_switch(3,8,True) #Low Gain
-        self.bb.set_switch(3,12,True) # Low T constant
-        self.bb.set_switch(3,15,True) #short PI
-
-        self.adc_data.comedi_reset() #reset any state
-        self.adc_data.get_ls_data(0) #Take data for ever
-        self.scope_data = collections.deque()
-
-        self.setup_run()
+    def setup_res_comp(self,wire_res=None):
+        if wire_res is None:
+            self.res_compensator = resistance_compensator(self.bb)
+        else:
+            self.res_compensator = resistance_compensator(self.bb,wire_res)
 
     ## This controlls the feedback on the SSA fb
     # channel for tuning send and first stage squids
@@ -73,14 +76,6 @@ class squids():
         self.feedback_thread.daemon = True
         self.pid_event.clear()
         self.feedback_thread.start()
-
-    def setup_run(self):
-        self.bb.ssa_bias_switch(True)
-        #self.bb.set_voltage(3,1,3.6) #SSA BIAS
-        #self.bb.set_voltage(2,2,0.05) #Offset
-        #self.bb.set_switch(3,0,True) #SAFB (now input)
-        #self.bb.set_switch(3,3,True) # FB
-        #self.bb.set_switch(3,15,False) #short PI
 
     def s2_bias_test_thread(self,fb_start,fb_stop,fb_step):
         self.sweep_thread = threading.Thread(target=self.s2_bias_test,
@@ -192,8 +187,11 @@ class squids():
             self.s_ts_buffer = array(self.s_ts_buffer)[ind_remain].tolist()
             self.s_v_buffer = array(self.s_v_buffer)[ind_remain].tolist()
 
+            #And here we do the resistance compensation for sweeping the squids
+            v_corrected = self.res_compensator.correct_batch_voltage(x[ind],y[ind],name)
+
             self.x_cont.extend(x[ind])
-            self.y_cont.extend(y[ind])
+            self.y_cont.extend(v_corrected)
             
     def __del__(self):
         del self.bb

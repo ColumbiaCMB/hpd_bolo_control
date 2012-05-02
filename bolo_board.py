@@ -13,7 +13,7 @@ from bolo_board_gui import *
 from date_tools import *
 
 class bolo_board():
-    def __init__(self,reload_state = False):
+    def __init__(self,reload_state = True):
         self.subdev = 2
         self.fsync_chan = 2
         self.sclk_chan  = 1
@@ -115,6 +115,9 @@ class bolo_board():
         cm.comedi_dio_write(self.cf,self.subdev,self.din_chan,0)
         self.data_lock = threading.Lock() 
 
+        #Zero voltages
+        self.zero_voltages()
+
         if reload_state is True:
             self.reload_db()
 
@@ -209,7 +212,7 @@ class bolo_board():
             self.rs_channel(self.registers["rs_channel"])
         else:
             self.turn_off_rs()
-        self.write_register("rs_switch", state)
+        self.write_register("s1_bias_switch", state)
 
     def rs_channel(self, channel):
         self.turn_off_rs()
@@ -438,7 +441,8 @@ class bolo_board():
         self.cur.execute("SELECT * FROM Registers")
         cmd = ""
         for row in self.cur:
-            cmd = cmd + "self.%s(%i);" % (row[1],row[2])
+            #cmd = cmd + "self.%s(%i);" % (row[1],row[2])
+            self.registers[row[1]] = row[2]
         exec cmd
 
 if __name__ == "__main__":
