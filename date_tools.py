@@ -8,3 +8,4 @@ def dt_to_mjd(dtime):
 def mjdnow():
     t_date = datetime.datetime.utcnow()
     return dt_to_mjd(t_date)
+

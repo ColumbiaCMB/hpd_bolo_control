@@ -12,10 +12,6 @@ from date_tools import *
 from pylab import mlab
 from bolo_adc_gui import *
 
-import matplotlib
-#matplotlib.use('GTKAgg') # do this before importing pylab
-import matplotlib.pyplot as plt
-
 logging.basicConfig()
 
 class bolo_adcCommunicator():
@@ -25,18 +21,29 @@ class bolo_adcCommunicator():
         self.max_buffer = max_buffer
 
         self.fb = collections.deque(maxlen=max_buffer) #ls_freq buffer
-        self.fb_uf = collections.deque(maxlen=max_buffer)#hs_freq buffer
+        self.fb_nofilt = collections.deque(maxlen=max_buffer) #ls_freq buffer with no filterting
+        self.fb_uf = collections.deque()#hs_freq buffer
         self.fb_temp = collections.deque(maxlen=max_buffer) #For FIR filtering
         self.fb_ds =  collections.deque(maxlen=max_buffer)#downsample_buffer
 
+        self.fb_logging = collections.deque(maxlen=max_buffer) #Buffer for 5khz data logging
+        self.fb_ds_logging = collections.deque(maxlen=max_buffer) #Buffer 100 hz data logging
+
         self.sa  = collections.deque(maxlen=max_buffer)
-        self.sa_uf = collections.deque(maxlen=max_buffer)
+        self.sa_nofilt = collections.deque(maxlen=max_buffer) #ls_freq buffer with no filterting
+        self.sa_uf = collections.deque()
         self.sa_temp = collections.deque(maxlen=max_buffer) #For FIR filtering
         self.sa_ds =  collections.deque(maxlen=max_buffer)
 
-        self.ls_sa_data = collections.deque() #logging buffer for sa
-        self.ls_fb_data = collections.deque() #logging buffer for fb
-        self.ls_ts_data = collections.deque() #logging buffer for ts
+        self.sa_logging = collections.deque(maxlen=max_buffer) #Buffer for 5khz data logging
+        self.sa_ds_logging = collections.deque(maxlen=max_buffer) #Buffer 100 hz data logging
+
+        self.ls_sa_data = collections.deque() #Internal logging buffer for sa
+        self.ls_fb_data = collections.deque() #Internal logging buffer for fb
+        self.ls_ts_data = collections.deque() #Internal logging buffer for ts
+
+        self.mjd_logging = collections.deque(maxlen=max_buffer) #Buffer for 5khz data logging
+        self.mjd_ds_logging = collections.deque(maxlen=max_buffer) #Buffer 100 hz data logging
 
         self.timestamps = collections.deque(maxlen=max_buffer)
         self.ts_temp = collections.deque(maxlen=max_buffer)
@@ -77,7 +84,7 @@ class bolo_adcCommunicator():
         self.adc_gain = 4
 
         self.ls_freq = 5000 #Low speed data taking frequency
-        self.hs_freq = 500000 #High speed data taking frequency
+        self.hs_freq = 312500 #High speed data taking frequency
         
         self.chunk_power = 12 #filter chunk size
         self.ntaps = 1001
@@ -88,9 +95,6 @@ class bolo_adcCommunicator():
 
         self.collect_data_flag = False
 
-        #temorary data
-        self.x_min = 0
-        self.x_max = 0.03
         self.setup_adc()
 
     def setup_filtering(self):
@@ -157,11 +161,13 @@ class bolo_adcCommunicator():
         #filter_lock is probably not correct here
         self.filter_lock.acquire()
         self.fb.clear()
+        self.fb_nofilt.clear()
         self.fb_uf.clear()
         self.fb_temp.clear()
         self.fb_ds.clear()
 
         self.sa.clear()
+        self.sa_nofilt.clear()
         self.sa_uf.clear()
         self.sa_temp.clear()
         self.sa_ds.clear()
@@ -169,6 +175,13 @@ class bolo_adcCommunicator():
         self.timestamps.clear()
         self.ts_temp.clear()
         self.ts_ds.clear()
+
+        self.fb_logging.clear()
+        self.fb_ds_logging.clear()
+        self.sa_logging.clear()
+        self.sa_ds_logging.clear()
+        self.mjd_logging.clear()
+        self.mjd_ds_logging.clear()
 
         self.filter_lock.release()
 
@@ -184,15 +197,20 @@ class bolo_adcCommunicator():
         #This is a wrapper to setup for lowspeed data taking
         #This is just the filtered outputs
         self.reset_queues()
-        channels = [self.fb_chan, self.sa_chan]
-        gains = [self.adc_gain, self.adc_gain]
-        refs = [c.AREF_DIFF, c.AREF_DIFF]
+        #We may as well get all four channels here
+        channels = [self.fb_chan, self.sa_chan, self.fb_uf_chan, self.sa_uf_chan]
+        gains = [self.adc_gain, self.adc_gain,self.adc_gain, self.adc_gain]
+        refs = [c.AREF_DIFF, c.AREF_DIFF,c.AREF_DIFF, c.AREF_DIFF]
         self.speed_flag = "ls"
         self.get_data(channels,gains,refs,self.ls_freq,period)
 
     def get_hs_data(self,period):
         #This is a wrapper to setup for lowspeed data taking
-        #This is just the filtered outputs
+        #This is just the filtered outputs]
+        #no timestamps here just data
+        if period > 10:
+            self.logger.error("Will not take more than 10 seconds of data at 312.5khz")
+            return -1
         channels = [self.fb_uf_chan, self.sa_uf_chan]
         gains = [self.adc_gain, self.adc_gain]
         refs = [c.AREF_DIFF, c.AREF_DIFF]
@@ -201,6 +219,9 @@ class bolo_adcCommunicator():
         
     def get_data(self,channels,gains,refs,frequency,period):
         self.comedi_reset()
+        self.reset_queues()
+        self.setup_filtering()
+
         cmd = self.prepare_cmd(channels, gains,refs,frequency)
         #Get base timestamp here with tap delay
         self.adc_time  = datetime.datetime.utcnow()
@@ -208,7 +229,11 @@ class bolo_adcCommunicator():
         if ret<0:
             self.logger.error("Error executing comedi_command")
             return -1
-        collector_thread = threading.Thread(target=self.collect_data)
+        if self.speed_flag == "ls":
+            collector_thread = threading.Thread(target=self.ls_collect_data)
+        else:
+            collector_thread = threading.Thread(target=self.hs_collect_data)
+
         collector_thread.daemon = True
         collector_thread.start()
         filter_thread = threading.Thread(target=self.filter_data)
@@ -223,34 +248,6 @@ class bolo_adcCommunicator():
     def collect_data_stop(self):
         self.stop_event.set()
         self.filter_event.set()
-
-    def write_data(self,filename,ftwo):
-        #Dead simple thread that writes to a text file every second
-        #For debug purposes
-        temp_file = open(filename,"w")
-        temp_file2 = open(ftwo,"w")
-
-        while not self.stop_event.isSet():
-            n_elements = size(self.fb_ds)
-            if n_elements != 0:
-                self.filter_lock.acquire()
-                for i in xrange(n_elements):
-                    temp_file.write(str(self.fb_ds.popleft()))
-                    temp_file.write("\n")
-                self.filter_lock.release()
-
-            n_elements = size(self.fb)
-            if n_elements != 0:
-                self.filter_lock.acquire()
-                for i in xrange(n_elements):
-                    temp_file2.write(str(self.fb.popleft()))
-                    temp_file2.write("\n")
-                self.filter_lock.release()
-            temp_file.flush()
-            time.sleep(1)
-
-        temp_file.close()
-        temp_file2.close()
 
     def filter_data(self):
         #This thread checks for data in the sa_temp buffer
@@ -291,6 +288,10 @@ class bolo_adcCommunicator():
                 self.fb_ds.extend(temp_fb)
                 self.ts_ds.extend(temp_ts)
 
+                self.sa_ds_logging.extend(temp_sa)
+                self.fb_ds_logging.extend(temp_fb)
+                self.mjd_ds_logging.extend(temp_ts)
+
                 #And do some FFTs here if we need to - We have the time
                 self.fourier_sa,self.fourier_freq_sa = mlab.psd(self.sa,
                                                                 NFFT=2056,Fs=self.ls_freq,
@@ -313,50 +314,125 @@ class bolo_adcCommunicator():
                     
             else:
                 time.sleep(.05)
-          
-    def collect_data(self):
+      
+    def hs_collect_data(self):
         self.stop_event.clear()
-        time_diff = datetime.timedelta(microseconds=200)
+        front = 0
+        back = 0
+        hs_data = []
         while not self.stop_event.isSet():
-            n_count = c.comedi_get_buffer_contents(self.dev,self.subdevice)
-            if n_count == 0:
+            front += c.comedi_get_buffer_contents(self.dev,self.subdevice)
+            if front < back:
+                self.logger.error("front<back comedi buffer error")
+                break
+            if (front-back)%8 != 0:
+                #print front,back
+                front = front-4
+            if front == back:
                 time.sleep(.01)
                 continue
-            if n_count % 2: #Odd then take one less
-                self.logger.info("n_count is odd!")
-                n_count = n_count - 1
-            self.adc_lock.acquire()
-            start = c.comedi_get_buffer_offset(self.dev,self.subdevice)
-            data = self.map[start:(start+n_count)]
-            format = "%iI" % (n_count/4)
-            dd = array(struct.unpack(format,data))
-            dd = dd.reshape(n_count/8, 2)
+            
+            print back,front,(front-back),(front%self.buffer_size)
+            self.map.seek(back%self.buffer_size)
+            for i in range(back,front,4):
+                if i%self.buffer_size == 0:
+                    self.map.seek(0)
+                hs_data.append(self.map.read(4))
 
+            c.comedi_mark_buffer_read(self.dev,self.subdevice,front-back)
+            back = front
+
+        #get remaining data
+        front += c.comedi_get_buffer_contents(self.dev,self.subdevice)
+        if (front-back)%8 != 0:
+                #print front,back
+                front = front-4
+        if front > back:
+            print "ending",back,front,(front-back),(front%self.buffer_size)
+            self.map.seek(back%self.buffer_size)
+            for i in range(back,front,4):
+                if i%self.buffer_size == 0:
+                    self.map.seek(0)
+                hs_data.append(self.map.read(4))
+        
+        self.comedi_reset()
+
+        #And process the high speed data
+        temp_data = []
+        for d in hs_data:
+            temp_data.append(struct.unpack("I",d)[0])
+
+        temp_data = array(temp_data)
+        temp_data = temp_data.reshape(len(temp_data)/2,2)
+        temp_fb = self.convert_to_real(self.adc_gain,temp_data[:,0])
+        temp_sa = self.convert_to_real(self.adc_gain,temp_data[:,1])
+        self.fb_uf.extend(temp_fb)
+        self.sa_uf.extend(temp_sa)
+
+
+    def ls_collect_data(self):
+        self.stop_event.clear()
+        time_diff = datetime.timedelta(microseconds=200)
+        front = 0
+        back = 0
+        while not self.stop_event.isSet():
+            front += c.comedi_get_buffer_contents(self.dev,self.subdevice)
+            if front < back:
+                self.logger.error("front<back comedi buffer error")
+                break
+            if (front-back)%16 != 0:
+                #print front,back
+                front = front-(front-back)%16
+            if front == back:
+                time.sleep(.01)
+                continue
+            
+            self.adc_lock.acquire()
+            #start = c.comedi_get_buffer_offset(self.dev,self.subdevice)
+            #print start,n_count,(start+n_count)
+            self.map.seek(back%self.buffer_size)
+            data = []
+            for i in range(back,front,4):
+                if i%self.buffer_size == 0:
+                    self.map.seek(0)
+                data.append(struct.unpack("I",self.map.read(4))[0])
+          
+            dd = array(data)
+            n_elements = len(dd)/4
+            dd = dd.reshape(n_elements, 4)
+            c.comedi_mark_buffer_read(self.dev,self.subdevice,front-back)
+            back = front
             self.adc_lock.release()
+            
             temp_fb = self.convert_to_real(self.adc_gain,dd[:,0])
             temp_sa = self.convert_to_real(self.adc_gain,dd[:,1])
+            temp_fb_nofilt = self.convert_to_real(self.adc_gain,dd[:,2])
+            temp_sa_nofilt = self.convert_to_real(self.adc_gain,dd[:,3])
+
             #Here we assume that the first value is first channel
-            if self.speed_flag == "ls":
-                #self.data_lock.acquire()
-                self.fb.extend(temp_fb)
-                self.sa.extend(temp_sa)
-                #self.data_lock.release()
-                self.filter_lock.acquire()
-                self.fb_temp.extend(temp_fb)
-                self.sa_temp.extend(temp_sa)
+            #self.data_lock.acquire()
+            self.fb.extend(temp_fb)
+            self.sa.extend(temp_sa)
+            self.fb_nofilt.extend(temp_fb_nofilt)
+            self.sa_nofilt.extend(temp_sa_nofilt)
+            
+            self.sa_logging.extend(temp_sa)
+            self.fb_logging.extend(temp_fb)
+
+            #self.data_lock.release()
+            self.filter_lock.acquire()
+            self.fb_temp.extend(temp_fb)
+            self.sa_temp.extend(temp_sa)
                 
-                for i in xrange(n_count/8):
-                    mjd = dt_to_mjd(self.adc_time)
-                    self.timestamps.append(mjd)
-                    self.ts_temp.append(mjd)
-                    self.adc_time = self.adc_time + time_diff
+            for i in xrange(n_elements):
+                mjd = dt_to_mjd(self.adc_time)
+                self.timestamps.append(mjd)
+                self.ts_temp.append(mjd)
+                self.mjd_logging.append(mjd)
+                self.adc_time = self.adc_time + time_diff
 
-                self.filter_lock.release()
-            else:
-                self.fb_uf.extend(temp_fb)
-                self.sa_uf.extend(temp_sa)
-
-            c.comedi_mark_buffer_read(self.dev,self.subdevice,n_count)
+            self.filter_lock.release()
+          
             
             
         #OK so we got a stop call - Halt the command
@@ -364,9 +440,9 @@ class bolo_adcCommunicator():
         n_count = c.comedi_poll(self.dev,self.subdevice)
         n_count = c.comedi_get_buffer_contents(self.dev,self.subdevice)
         print "END POLL", n_count
-        if n_count != 0:
-            start = c.comedi_get_buffer_offset(self.dev,self.subdevice)
-            data = self.map[start:(start+n_count)]
+        #if n_count != 0:
+        #    start = c.comedi_get_buffer_offset(self.dev,self.subdevice)
+         #   data = self.map[start:(start+n_count)]
  
         self.comedi_reset()
 
@@ -389,8 +465,8 @@ class bolo_adcCommunicator():
         if ret!=0:
             self.logger.error("Error executing comedi reset")
             return -1
-        self.reset_queues()
-        self.setup_filtering()
+        #self.reset_queues()
+        #self.setup_filtering()
 
     def prepare_cmd(self,channels,gains,aref,freq):
         #First create the channel setup

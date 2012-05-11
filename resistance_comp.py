@@ -83,7 +83,7 @@ class resistance_compensator:
             v_drop = self.G_amp*self.R_SSA_bias_internal*current
             v_corrected = array(v)-v_drop-self.calculate_static_drop()
             self.correct_SSA_bias = state
-        if line == "self_fb":
+        if line == "ssa_fb":
             state = self.correct_SSA_fb
             self.correct_SSA_fb = False
             current = array(v_source)/self.R_SSA_fb_total
