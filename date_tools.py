@@ -9,3 +9,14 @@ def mjdnow():
     t_date = datetime.datetime.utcnow()
     return dt_to_mjd(t_date)
 
+def date_toolkit(inp,outformat='mjd'):
+    if inp == "now":
+        t_date = datetime.datetime.utcnow()
+    else:
+        t_date = inp
+
+    if outformat == 'mjd':
+        return dt_to_mjd(t_date)
+
+    if outformat == 'file':
+        return t_date.strftime("%Y%m%d_%H%M%S")

@@ -18,7 +18,7 @@ class resistance_compensator:
         #And set some flags for what we want to correct for
         self.correct_SSA_bias = True
         self.correct_SSA_fb = True
-        self.correct_S2_bias = False
+        self.correct_S2_bias = True
         self.correct_S2_fb = False
         self.correct_S1_bias = False
         self.correct_S1_fb = False
@@ -34,15 +34,18 @@ class resistance_compensator:
 
         self.R_SSA_bias = 30.1e3 #Just the bias resister
         self.R_SSA_fb = 24.9e3 + 1e3 #Bias plus 1k internal
+        self.R_S2_bias = 24.9e3 + 1e3 #Bias plus 1k internal
         
         self.G_amp = 22.0 #amplifier gain
 
         #Some useful totals
         self.R_SSA_bias_total = self.R_SSA_bias +self. R_SSA_int + self.R_wire +self.R_gnd
         self.R_SSA_fb_total = self.R_SSA_fb + self.R_gnd
+        self.R_S2_bias_total = self.R_S2_bias + self.R_gnd
+        
         self.R_SSA_bias_internal = self.R_wire + self.R_gnd
         self.R_SSA_fb_internal = self.R_gnd
-
+        self.R_S2_bias_internal = self.R_gnd
     ## This takes the current recorded values
     # In the bolo_board registers and provides 
     # A corrected voltage
@@ -55,7 +58,8 @@ class resistance_compensator:
              vdrop = vdrop + self.calculate_SSA_bias_drop()
         if self.correct_SSA_fb is True:
             vdrop = vdrop +  self.calculate_SSA_fb_drop()
-
+        if self.correct_S2_bias is True:
+            vdrop = vdrop +  self.calculate_S2_bias_drop()
         return vdrop
 
     def calculate_SSA_bias_drop(self):
@@ -70,6 +74,12 @@ class resistance_compensator:
         v_drop = self.G_amp*self.R_SSA_fb_internal*current
         return v_drop
 
+    def calculate_S2_bias_drop(self):
+        vin = self.bb.registers["s2_bias_voltage"]
+        current = vin/self.R_S2_bias_total
+        v_drop = self.G_amp*self.R_S2_bias_internal*current
+        return v_drop
+    
     ## When we sweep we probably want to 
     # not correct on the fly but correct an array
     # of values dependent upon what we are sweeping
@@ -90,7 +100,14 @@ class resistance_compensator:
             v_drop = self.G_amp*self.R_SSA_fb_internal*current
             v_corrected = array(v)-v_drop-self.calculate_static_drop()
             self.correct_SSA_fb = True
-
+        if line == "s2_bias":
+            state = self.correct_S2_bias
+            self.correct_S2_bias = False
+            current = array(v_source)/self.R_SSA_fb_total
+            v_drop = self.G_amp*self.R_SSA_fb_internal*current
+            v_corrected = array(v)-v_drop-self.calculate_static_drop()
+            self.correct_S2_bias = True
+           
         return v_corrected
      
         

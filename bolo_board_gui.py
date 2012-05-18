@@ -55,6 +55,7 @@ class bolo_board_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.Ims_switch,QtCore.SIGNAL("toggled(bool)"), self.p.tconst_switch)
         QtCore.QObject.connect(self.enablefb_switch,QtCore.SIGNAL("toggled(bool)"), self.Feedback_switch)
         QtCore.QObject.connect(self.shortint_switch,QtCore.SIGNAL("toggled(bool)"), self.p.short_int_switch)
+        QtCore.QObject.connect(self.mod_type_cb,QtCore.SIGNAL("currentIndexChanged(const QString)"), self.mod_cb_changed)
 
 
         #Connect the timer function to the update 
@@ -84,11 +85,11 @@ class bolo_board_gui(QtGui.QDialog):
         stop = self.stop_input.value()
         step = self.step_input.value()
         count = self.count_input.value()
-        loop = self.loop_rb.isChecked()
+        mod_type = str(self.mod_type_cb.currentText())
         name = str(self.sweep_cb.currentText())
 
         self.sweep_timer.start(500)
-        self.p.wrapper_sweep_voltage(name,start,stop,step,count,loop)
+        self.p.wrapper_sweep_voltage(name,start,stop,step,count,mod_type)
 
     def set_rs(self):
         self.p.rs_channel(self.rs_channel_Input.value())
@@ -134,6 +135,19 @@ class bolo_board_gui(QtGui.QDialog):
             self.heater_switch.setChecked(False)
         self.p.heater_ext_switch(state)
 
+    def mod_cb_changed(self,name):
+        if name == "sin":
+            self.step_label.setText("Period")
+            self.step_input.setDecimals(1)
+            self.step_input.setRange(0,20)
+            self.step_input.setValue(5)
+            self.step_input.setSingleStep(0.1)
+        else:
+            self.step_label.setText("Step")
+            self.step_input.setDecimals(3)
+            self.step_input.setRange(-5,5)
+            self.step_input.setValue(0.001)
+            self.step_input.setSingleStep(0.001)
 
 #Layout stuff here if you need it
 
@@ -326,12 +340,16 @@ class bolo_board_gui(QtGui.QDialog):
 
         self.count_input = QtGui.QSpinBox()
         self.count_input.setRange(1,10)
-        self.loop_rb = QtGui.QRadioButton("Loop")
+        self.mod_type_cb  = QtGui.QComboBox()
+        self.mod_type_cb.addItem("lin")
+        self.mod_type_cb.addItem("saw")
+        self.mod_type_cb.addItem("sin")
+
         self.sweep_pb = QtGui.QProgressBar()
         self.sweep_pb.setProperty("value", 0)
 
         self.sweep_layout.addWidget(self.count_input,3,1,1,1)
-        self.sweep_layout.addWidget(self.loop_rb,3,2,1,1)
+        self.sweep_layout.addWidget(self.mod_type_cb,3,2,1,1)
         self.sweep_layout.addWidget(self.sweep_pb,4,0,1,-1)
 
         self.sweep_group.setLayout(self.sweep_layout)

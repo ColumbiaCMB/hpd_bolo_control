@@ -7,7 +7,7 @@ import collections
 import mmap
 import time
 import datetime
-from numpy import arange,linspace
+from numpy import *
 import sqlite3 as lite
 from bolo_board_gui import *
 from date_tools import *
@@ -316,7 +316,16 @@ class bolo_board():
         else:
             self.turn_off_tconst()
 
-
+    def sin_wave(self,start,stop,period,pause):
+        #Assume we have 0.001V to play with
+        n_points = period/pause
+        factor = (2*pi)/n_points
+        offset = (stop+start)/2.0
+        gain = (stop-start)/2.0
+        x = arange(n_points)
+        self.volt_out = offset + gain*sin(factor*x)
+        
+            
     def set_voltage(self,mux,channel,volts):
         self.data = 1 #MSB need to be 1 to work
         self.data = (self.data << 2) + channel
@@ -329,30 +338,38 @@ class bolo_board():
 
         self.data = (self.data << 16) + bit_value
         self.send_data(self.data)
-
-    def wrapper_sweep_voltage(self,name,start,stop,step,count=1,loop=False):
+        
+    def wrapper_sweep_voltage(self,name,start,stop,step,count=1,mod_type="lin"):
         #This is just a wrapper that takes a name rather than
         #A mux and channel - useful for GUI etc
 
         self.sweep_thread = threading.Thread(target=self.sweep_voltage, 
                                              args=(self.volt_lookup[name][0], 
                                                    self.volt_lookup[name][1], 
-                                                   start, stop, step, count, loop))
+                                                   start, stop, step, count, mod_type))
         self.sweep_thread.start()
 
-    def sweep_voltage(self,mux,channel,start,stop,step,count=1,loop=False):
+    def sweep_voltage(self,mux,channel,start,stop,step,count=1,mod_type="lin"):
         #Do the really really dumb thing
         #We record the value and the timestamp for matching
         #Calculate number of steps etc
-
+        #for sin step is the period
+        pause = 0.001
         self.data_lock.acquire()
         self.sweep_ts_data.clear()
         self.sweep_v_data.clear()
         self.data_lock.release()
+
+        if mod_type == "sin":
+            vout = self.sin_wave(self,start,stop,step)
+        if mod_type == "lin":
+            vout = arange(start,stop,step)
+        if mod_type == "saw":
+            x = arange(start,stop,step)
+            y = arange(stop,start,-step)
+            vout = concatenate((x,y))
         
-        nsteps = len(arange(start,stop,step))*count
-        if loop is True:
-            nsteps = nsteps*2
+        nsteps = len(vout)*count
 
         self.sweep_progress = 0 
         sweep_step = 100.0/nsteps
@@ -365,16 +382,7 @@ class bolo_board():
                 self.sweep_v_data.append(v)
                 self.data_lock.release()
                 self.sweep_progress = self.sweep_progress + sweep_step
-                time.sleep(0.001)
-            if loop is True:
-                for v in arange(stop,start,-step):
-                    self.set_voltage(mux,channel,v)
-                    self.data_lock.acquire()
-                    self.sweep_ts_data.append(mjdnow())
-                    self.sweep_v_data.append(v)
-                    self.data_lock.release()
-                    self.sweep_progress = self.sweep_progress + sweep_step
-                    time.sleep(0.001)
+                time.sleep(pause)
         
         self.sweep_progress = -1 #For GUI 
 

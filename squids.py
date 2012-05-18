@@ -9,6 +9,7 @@ from bolo_board_gui import *
 import pid
 from numpy import mean
 from resistance_comp import *
+from date_tools import *
 
 class timestamp_match():
     def __init__(self):
@@ -21,7 +22,9 @@ class timestamp_match():
 
 
 class squids():
-    def __init__(self,bolo_board=None,bolo_adc=None):
+    def __init__(self,bolo_board=None,
+                 bolo_adc=None,
+                 data_logging=None):
         if bolo_adc is None:
             self.adc_data = bolo_adcCommunicator()
         else:
@@ -32,6 +35,7 @@ class squids():
         else:
             self.bb = bolo_board
         
+        self.dlog = data_logging
         self.setup_res_comp()
         self.sweep_thread = threading.Thread()
 
@@ -40,6 +44,7 @@ class squids():
 
         self.x_cont = []
         self.y_cont = []
+        self.mjd_cont = []
         self.s2_data_x = []
         self.s2_data_y = []
         self.VPhi_data_x = {}
@@ -52,7 +57,7 @@ class squids():
             self.res_compensator = resistance_compensator(self.bb,wire_res)
 
     ## This controlls the feedback on the SSA fb
-    # channel for tuning send and first stage squids
+    # channel for tuning second and first stage squids
     # @param self The object pointer
     # @param setpoint Where we want to lock at
     # @param state turn on and off
@@ -64,7 +69,8 @@ class squids():
         self.pid.setPoint(setpoint)
         while not self.pid_event.isSet():
             #We use SA_ds as measure
-            pid_out = self.pid.update(self.adc_data.sa[-1])
+            corrected_V = self.res_compensator.correct_voltage(self.adc_data.sa[-1])
+            pid_out = self.pid.update(corrected_V)
             new_voltage = pid_out
             self.bb.ssa_fb_voltage(new_voltage)
             time.sleep(0.001)
@@ -111,49 +117,68 @@ class squids():
         self.sweep_thread.daemon = True
         self.sweep_thread.start()
 
-    def ssa_VPhi(self,fb_start,fb_stop,fb_step,ssa_start,ssa_stop,n_steps):
+    def ssa_VPhi(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
         #We do a number of sweeps of the feedback at different bias voltages
-        bias_steps = linspace(ssa_start,ssa_stop,n_steps)
+        bias_steps = linspace(start,stop,n_steps)
         self.VPhi_data_x = {}
         self.VPhi_data_y = {}
         self.adc_data.start_data_logging(True) #start filling the data buffer
-        for ssa_b in bias_steps:
-            print ssa_b
-            self.bb.ssa_bias_voltage(ssa_b)
-            #self.bb.s2_bias_voltage(ssa_b) 
-            #print "REMEMBER TO CHANGE BACK THE BIAS VOLTAGE HERE"
-            #start the sweep thread and poll for when done
+        for b in bias_steps:
+            self.bb.ssa_bias_voltage(b)
             self.sweep("ssa_fb",fb_start,fb_stop,fb_step)
-            self.VPhi_data_x[ssa_b] = self.x_cont
-            self.VPhi_data_y[ssa_b] = self.y_cont
+            self.VPhi_data_x[b] = self.x_cont
+            self.VPhi_data_y[b] = self.y_cont
         
         self.adc_data.start_data_logging(False) #stop filling the data buffer
 
+    def s2_VPhi_thread(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
+        self.sweep_thread = threading.Thread(target=self.s2_VPhi,
+                                             args = (fb_start,fb_stop,fb_step,start,stop,n_steps))
+        self.sweep_thread.daemon = True
+        self.sweep_thread.start()
+
+    def s2_VPhi(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
+        #We do a number of sweeps of the feedback at different bias voltages
+        bias_steps = linspace(start,stop,n_steps)
+        self.VPhi_data_x = {}
+        self.VPhi_data_y = {}
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        for b in bias_steps:
+            #self.bb.s2_bias_voltage(b)
+            ###!!!Fix me here 
+            self.bb.ssa_bias_voltage(b)
+            self.sweep("s2_bias",fb_start,fb_stop,fb_step)
+            self.VPhi_data_x[b] = self.x_cont
+            self.VPhi_data_y[b] = self.y_cont
+        
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
+        
     def ssa_iv_thread(self,ssa_start,ssa_stop,ssa_step,count):
          self.sweep_thread = threading.Thread(target=self.ssa_iv,
                                              args = (ssa_start,ssa_stop,ssa_step,count))
          self.sweep_thread.daemon = True
          self.sweep_thread.start()
 
-    def ssa_iv(self,ssa_start,ssa_stop,ssa_step,count):
+    def ssa_iv(self,ssa_start,ssa_stop,ssa_step,count=1):
         self.adc_data.start_data_logging(True) #start filling the data buffer
-        self.sweep("ssa_bias",ssa_start,ssa_stop,ssa_step)
+        self.sweep("ssa_bias",ssa_start,ssa_stop,ssa_step,count)
         self.adc_data.start_data_logging(False) #stop filling the data buffer
 
-    def wrapper_sweep_thread(self,name,start,stop,step=0.001,count=1):
+    def wrapper_sweep_thread(self,name,start,stop,count):
         self.sweep_thread = threading.Thread(target=self.sweep,
                                              args=(name,start,stop,step,count))
         self.sweep_thread.daemon = True
         self.sweep_thread.start()
 
-    def sweep(self,name,start,stop,step=0.001,count=1):
+    def sweep(self,name,start,stop,step,count=1):
        #Sweep is now a low level function - you NEED to turn on loggin elsewhere
-        self.bb.wrapper_sweep_voltage(name,start,stop,step,count,False)
-        
+        self.bb.wrapper_sweep_voltage(name,start,stop,step,count)
         self.x_cont = []
         self.y_cont = []
+        self.mjd_cont = []
         self.s_ts_buffer = []
         self.s_v_buffer = [] 
+
         while self.bb.sweep_thread.isAlive():
             if len(self.adc_data.ls_ts_data) < 2 or len(self.bb.sweep_ts_data) < 2:
                 time.sleep(0.1)
@@ -180,6 +205,7 @@ class squids():
             f_int = interpolate.interp1d(self.s_ts_buffer, self.s_v_buffer,bounds_error=False)
             x = f_int(temp_ts_data)
             y = array(temp_sa_data)
+            ts = array(temp_ts_data)
 
             ind = where(isfinite(x))
             ind_remain = where(self.s_ts_buffer > temp_ts_data[-1])[0]
@@ -192,7 +218,14 @@ class squids():
 
             self.x_cont.extend(x[ind])
             self.y_cont.extend(v_corrected)
-            
+            self.mjd_cont.extend(ts[ind])
+
+    def write_IV_data(self,name):
+        if self.dlog is not None:
+            if self.dlog.file_name is not None:
+                print len(self.x_cont),len(self.y_cont),len(self.mjd_cont)
+                self.dlog.add_IV_data(self.x_cont, self.y_cont, self.mjd_cont,name)
+
     def __del__(self):
         del self.bb
         del self.adc_data

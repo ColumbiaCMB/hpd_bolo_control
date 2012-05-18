@@ -18,10 +18,10 @@ class PID:
 	Discrete PID control
 	"""
 
-	def __init__(self, P=2.0, I=0.0, D=1.0, Offset=0, Derivator=0, Integrator=0, Integrator_max=500, Integrator_min=-500):
+	def __init__(self, P=2.0, I=0.0, D=0.0, Offset=0, Derivator=0, Integrator=0, Integrator_max=50000, Integrator_min=-50000):
 
 		self.Kp=P
-		self.Ki=I/1000.0
+		self.Ki=I
 		self.Kd=D
 		self.Offset = Offset
 		self.Derivator=Derivator
@@ -54,8 +54,9 @@ class PID:
 
 		PID = self.P_value + self.I_value + self.D_value
 
-		print PID,PID-self.Offset
-		return self.Offset - PID
+		print PID,self.P_value,self.Integrator*self.Ki
+        
+		return  PID
 
 	def setPoint(self,set_point):
 		"""

@@ -9,17 +9,19 @@ from bolo_main_gui import *
 from bolo_board import *
 from bolo_adc import *
 from squids import *
-
+from data_logging import *
 
 ## The main class function
 class bolo_main():
     def __init__(self):
         self.bb = bolo_board()
         self.adc = bolo_adcCommunicator()
-        self.sq = squids(bolo_board=self.bb,bolo_adc=self.adc)
+        self.dl = data_logging()
+        self.sq = squids(bolo_board=self.bb,bolo_adc=self.adc,data_logging=self.dl)
         self.default_setup()
         self.quick_setup()
-    
+        self.setup_logging()
+        
     def default_setup(self):
         #We just start data logging - nothing else
         self.adc.comedi_reset() #reset any state
@@ -36,6 +38,15 @@ class bolo_main():
         self.bb.short_int_switch(True)
         self.sq.setup_res_comp()
 
+    def setup_logging(self):
+        #This sets up a simple logging system
+        #We attache the bolo_board registers to it
+        self.dl.addRegisters("bolo_board",self.bb.registers)
+        self.dl.addStream("sa",self.adc.sa_logging,"reg_5khz")
+        self.dl.addStream("sa_ds",self.adc.sa_ds_logging,"reg_100hz")
+        self.dl.addStream("fb",self.adc.fb_logging,"reg_5khz")
+        self.dl.addStream("fb_ds",self.adc.fb_ds_logging,"reg_100hz")
+        
     def launch_gui(self):
         self.app = QtGui.QApplication(sys.argv)
         #We setup all required gui's here but only
@@ -44,6 +55,7 @@ class bolo_main():
         self.bb_gui = bolo_board_gui(self.bb,self.gui)
         self.adc_gui = bolo_adc_gui(self.adc,self.gui)
         self.squid_gui = bolo_squids_gui(self.sq,self.gui)
+        self.data_gui = data_logging_gui(self.dl,self.gui)
 
         self.gui.show()
 
