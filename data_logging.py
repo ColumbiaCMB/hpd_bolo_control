@@ -100,67 +100,82 @@ class data_logging:
         sa_var[:] = sa_data
         fb_var[:] = fb_data
             
-    def add_VPHI_data(self,prefix,V,Phi,mjd,bias_points,suffix=None):
+    def add_VPHI_data(self,Phi,V,mjd,meta=None,suffix=None):
         #This adds data to the netcdf file 
-        #We can have multiple inputs
-        #prefix is for say SSA,S2,S1
-        #suffix is for anything else you need
+        #The data arrives as a dict with the bias_points as the key
+        #due to the way the data works, we create separate variables
+        #for each V-Phi and also record the bias points
+        #this **may** make analysis slightly more complex but keeps
+        #things simple here
+            
+        self.test_data = Phi
+        temp_date = mjd_to_dt(mjd)
+        temp_date = date_toolkit(temp_date,"file")
+        if suffix is None:
+            group_name = "VPHI_%s" % temp_date
+        else:
+            group_name = "%s_VPHI_%s" % (suffix,temp_date)
+
+        group = self.rootgrp.createGroup(group_name)
         
-        if suffix is None:
-            Phi_name = "Phi"
-            V_name = "V"
-            mjd_name = "mjd"
-            bias_name = "bias_points"
-        else:
-            Phi_name =  "Phi_" + suffix
-            V_name = "V_" + suffix
-            mjd_name = "mjd_" + suffix
-            bias_name = "bias_points_" + suffix
+        bpoints = []
+        curve_num = 0 
+        for bias_point in sorted(Phi.iterkeys()):
+            bpoints.append(bias_point)
+            phi_data = []
+            v_data = []
+            phi_data.extend(Phi[bias_point])
+            v_data.extend(V[bias_point])
+            n_points = len(phi_data)
 
-        temp_name = "_VPHI_%i" & mjd[0]
-        group_name = prefix + temp_name 
-        group = self.rootgrp.createGroup(group_name)
+            dim_name = "n_points_%i" % curve_num
+            phi_name = "PHI_%i" % curve_num
+            v_name = "V_%i" % curve_num
+            print len(phi_data), len(v_data), bias_point
+            print dim_name,phi_name,v_name
+            group.createDimension(dim_name,len(phi_data))
+            phi_var = group.createVariable(phi_name,'f4',(dim_name),zlib=True)
+            v_var = group.createVariable(v_name,'f4',(dim_name),zlib=True)
+            phi_var[:] = phi_data
+            v_var[:] = v_data
+            curve_num += 1
 
-        n_bias_points = len(bias_points)
-        group.createDimension("n_points",len(I))
-        group.createDimension("n_biases",n_bias_points)
-
-        Phi_var = group.createVariable(I_name,'f4',("n_points","n_biases"),zlib=True)
-        V_var = group.createVariable(V_name,'f4',("n_points","n_biases"),zlib=True)
-        mjd_var = group.createVariable(mjd_name,'f8',("n_points","n_biases"),zlib=True)
+        
+        group.createDimension("n_biases",len(Phi))
+        #mjd_var = group.createVariable("mjd",'f8',("n_points","n_biases"),zlib=True)
         b_points =group.createVariable("bias_points",'f4',("n_biases"),zlib=True)
+        b_points[:] = bpoints
 
-        Phi_var[:,:] = Phi
-        V_var[:,:] = V
-        mjd[:,:] = mjd
-        bias_points[:] = bias_points
+        if meta is not None:
+            group.log = meta
 
-    def add_IV_data(self,I,V,mjd,suffix=None):
+        group.bias_points = bpoints
+        self.rootgrp.sync()
+
+    def add_IV_data(self,I,V,mjd,meta=None,suffix=None):
         #This adds IV data - We only really have one of these
-        #Need to add attributes to descibe this but can do later
-
+   
+        temp_date = mjd_to_dt(mjd[0])
+        temp_date = date_toolkit(temp_date,"file")
         if suffix is None:
-            I_name = "I"
-            V_name = "V"
-            mjd_name = "mjd"
+            group_name = "IV_%s" % temp_date
         else:
-            I_name =  "I_" + suffix
-            V_name = "V_" + suffix
-            mjd_name = "mjd_" + suffix
-       
+            group_name = "%s_IV_%s" % (suffix,temp_date)
 
-        group_name = "IV_%f" % mjd[0] #cast to float
         group = self.rootgrp.createGroup(group_name)
 
         group.createDimension("n_points",len(I))
 
-        I_var = group.createVariable(I_name,'f4',("n_points"),zlib=True)
-        V_var = group.createVariable(V_name,'f4',("n_points"),zlib=True)
-        mjd_var = group.createVariable(mjd_name,'f8',("n_points"),zlib=True)
+        I_var = group.createVariable("I",'f4',("n_points"),zlib=True)
+        V_var = group.createVariable("V",'f4',("n_points"),zlib=True)
+        mjd_var = group.createVariable("mjd",'f8',("n_points"),zlib=True)
                         
         I_var[:] = I
         V_var[:] = V
         mjd_var[:] = mjd
+
+        if meta is not None:
+            group.log = meta
 
         self.rootgrp.sync()
 

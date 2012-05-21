@@ -149,7 +149,9 @@ class bolo_squids_gui(QtGui.QDialog):
 
         self.good_colors = [Qt.Qt.white,Qt.Qt.cyan, Qt.Qt.red, Qt.Qt.green,Qt.Qt.magenta,Qt.Qt.gray]
         self.run_job = self.run_type["idle"]
-        
+        self.file_label_prefix = None
+        self.data_saved = False
+
     def setupUi(self):
         self.setWindowTitle("SQUID Control")
         self.tabWidget = QtGui.QTabWidget(self)
@@ -223,12 +225,17 @@ class bolo_squids_gui(QtGui.QDialog):
         self.SaveButton = QtGui.QPushButton("Save")
         self.SaveButton.setAutoDefault(False)
         self.SaveButton.setEnabled(False)
+        self.meta_data =  QtGui.QLineEdit()
         self.SaveLabel = small_text("No Info", "green")
 
         self.save_layout = QtGui.QHBoxLayout()
         self.save_layout.addWidget(self.SaveButton)
+        self.save_layout.addWidget(self.meta_data)
         self.save_layout.addWidget(self.SaveLabel)
+        self.save_layout.setStretch(1,2)
+        self.save_layout.setStretch(2,1)
 
+        
         self.layout = QtGui.QHBoxLayout()
         self.layout.addWidget(self.tabWidget)
         self.layout.addWidget(self.pid_group)
@@ -273,9 +280,9 @@ class bolo_squids_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.setpoint_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setPoint)
 
     def update_plots(self):
-        if self.run_job == self.run_type["ssa_iv"]: 
+        if self.run_job == "ssa_iv": 
             self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
-        elif self.run_job == self.run_type["ssa_vphi"]:
+        elif self.run_job == "ssa_vphi":
             #Do dumb thing and update each curve
             #if available - burn those cpu cycles
             for s_bias in self.p.VPhi_data_x:
@@ -290,7 +297,7 @@ class bolo_squids_gui(QtGui.QDialog):
 
             #And also update the current curve
             self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
-        elif self.run_job == self.run_type["s2_vphi"]:
+        elif self.run_job == "s2_vphi":
             #Do dumb thing and update each curve
             #if available - burn those cpu cycles
             for s_bias in self.p.VPhi_data_x:
@@ -347,12 +354,26 @@ class bolo_squids_gui(QtGui.QDialog):
         self.ssa_widget.set_disable_all(state)
         self.s2_widget.set_disable_all(state)
         self.s1_widget.set_disable_all(state)
-        self.SaveButton.setEnabled(state)
+        if self.data_saved is False:
+            self.SaveButton.setEnabled(state)
+        else:
+            self.SaveButton.setEnabled(False)
 
+        #Also see if there is a file open
+        if self.p.dlog.file_name is None:
+            self.SaveLabel.set_color_text("No File", "red")
+            self.file_label_prefix = None
+        else: 
+            if self.file_label_prefix is None: 
+                tmp_txt = "Current File: %s " % self.p.dlog.file_name
+                self.SaveLabel.set_color_text(tmp_txt,"blue")
+            else:
+                tmp_txt = "%s: %s " % (self.file_label_prefix,self.p.dlog.file_name)
+                self.SaveLabel.set_color_text(tmp_txt,"green")
 
     def run_s2_test(self):
         self.setup_curve()
-        self.run_job = self.run_type["s2_vphi"]
+        self.run_job = "s2_vphi"
         self.p.s2_bias_test_thread(self.s2_widget.fb_start_Input.value(),
                         self.s2_widget.fb_stop_Input.value(),
                         self.s2_widget.fb_step_Input.value())
@@ -360,7 +381,7 @@ class bolo_squids_gui(QtGui.QDialog):
     def run_s2_VPhi(self):
         self.ssa_widget.ssa_plot.plot_region.clear()
         self.setup_curve()
-        self.run_job = self.run_type["s2_vphi"]
+        self.run_job = "s2_vphi"
         self.p.s2_VPhi_thread(self.s2_widget.fb_start_Input.value(),
                         self.s2_widget.fb_stop_Input.value(),
                         self.s2_widget.fb_step_Input.value(),
@@ -371,7 +392,7 @@ class bolo_squids_gui(QtGui.QDialog):
     def run_ssa_VPhi(self):
         self.ssa_widget.ssa_plot.plot_region.clear()
         self.setup_curve()
-        self.run_job = self.run_type["ssa_vphi"]
+        self.run_job = "ssa_vphi"
         self.p.ssa_VPhi_thread(self.ssa_widget.fb_start_Input.value(),
                         self.ssa_widget.fb_stop_Input.value(),
                         self.ssa_widget.fb_step_Input.value(),
@@ -379,10 +400,13 @@ class bolo_squids_gui(QtGui.QDialog):
                         self.ssa_widget.bias_stop_Input.value(),
                         self.ssa_widget.fb_count_Input.value())
 
+        self.SaveButton.setText("Save SSA VPHI")
+        self.data_saved = False
+        
     def run_ssa_VI(self):
         self.ssa_widget.ssa_plot.plot_region.clear()
         self.setup_curve()
-        self.run_job = self.run_type["ssa_iv"]
+        self.run_job = "ssa_iv"
         #This function takes a VI, either continously or a single shot
         #setup a curve on the plot
         if self.ssa_widget.continuous_check.isChecked() is True:
@@ -396,9 +420,19 @@ class bolo_squids_gui(QtGui.QDialog):
                                     count)
         
         self.SaveButton.setText("Save SSA VI")
+        self.data_saved = False
 
     def save_data(self):
-        self.p.write_IV_data("ssa")
+        meta = self.meta_data.text()
+        #Determine the run type from run_type
+        sq,rtype = self.run_job.split("_")
+        if rtype == "iv":
+            self.p.write_IV_data(sq,str(meta))
+            self.file_label_prefix = "Saved %s to " % self.run_job.upper()
+        elif rtype == "vphi":
+            self.p.write_VPHI_data(sq,str(meta))
+            self.file_label_prefix = "Saved %s to " % self.run_job.upper()
+        self.data_saved = True
 
 
 class small_text(QtGui.QLabel):
@@ -409,6 +443,12 @@ class small_text(QtGui.QLabel):
         color_string = "QLabel {color : %s;}" % color
         self.setStyleSheet(color_string);
 
+     def set_color_text(self,text,color):
+         self.setText(text)
+         color_string = "QLabel {color : %s;}" % color
+         self.setStyleSheet(color_string);
+
+   
 class bolo_doubleInput(QtGui.QDoubleSpinBox):
     def __init__(self,gui_parent=None):
         QtGui.QDoubleSpinBox.__init__(self, gui_parent)

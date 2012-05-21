@@ -9,6 +9,11 @@ def mjdnow():
     t_date = datetime.datetime.utcnow()
     return dt_to_mjd(t_date)
 
+def mjd_to_dt(mjd):
+    mjd_start = datetime.datetime(1858,11,17,0,0)
+    difference = datetime.timedelta(days=mjd)
+    return mjd_start + difference
+
 def date_toolkit(inp,outformat='mjd'):
     if inp == "now":
         t_date = datetime.datetime.utcnow()

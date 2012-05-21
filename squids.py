@@ -126,6 +126,7 @@ class squids():
         for b in bias_steps:
             self.bb.ssa_bias_voltage(b)
             self.sweep("ssa_fb",fb_start,fb_stop,fb_step)
+            print "ROOOOOS", len(self.x_cont)
             self.VPhi_data_x[b] = self.x_cont
             self.VPhi_data_y[b] = self.y_cont
         
@@ -220,11 +221,19 @@ class squids():
             self.y_cont.extend(v_corrected)
             self.mjd_cont.extend(ts[ind])
 
-    def write_IV_data(self,name):
+    def write_IV_data(self,name,meta):
         if self.dlog is not None:
             if self.dlog.file_name is not None:
-                print len(self.x_cont),len(self.y_cont),len(self.mjd_cont)
-                self.dlog.add_IV_data(self.x_cont, self.y_cont, self.mjd_cont,name)
+                self.dlog.add_IV_data(self.x_cont, self.y_cont, self.mjd_cont,meta,name)
+
+    def write_VPHI_data(self,name,meta):
+        #fudge mjd_cont
+        mjd = mjdnow()
+        if self.dlog is not None:
+            if self.dlog.file_name is not None:
+                self.dlog.add_VPHI_data(self.VPhi_data_x, 
+                                        self.VPhi_data_y,
+                                        mjd,meta,name)
 
     def __del__(self):
         del self.bb
