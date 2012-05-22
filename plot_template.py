@@ -7,7 +7,7 @@ except AttributeError:
     _fromUtf8 = lambda s: s
 
 class plot_template(QtGui.QWidget):
-    def __init__(self,x_log=False,y_log=False,gui_parent=None):
+    def __init__(self,x_log=False,y_log=False,legend=False,gui_parent=None):
         QtGui.QWidget.__init__(self, gui_parent)
         self.plot_timer = QtCore.QTimer()
         self.x_log = x_log
@@ -16,7 +16,8 @@ class plot_template(QtGui.QWidget):
         self.setupUi()
         self.setupDefaults()
         self.setupZoomers()
-        self.setup_legend()
+        if legend is True:
+            self.setup_legend()
         self.setup_plots()
         self.setup_slots()
 

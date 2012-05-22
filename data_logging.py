@@ -33,7 +33,7 @@ class data_logging:
         self.setup_file()
 
         self.addRegGroups()
-        self.setStream()
+        #self.setStream()
         self.rootgrp.sync()
 
                                        
@@ -100,6 +100,15 @@ class data_logging:
         sa_var[:] = sa_data
         fb_var[:] = fb_data
             
+    def record_ls_data(self,state,meta=None,suffix=None):
+        #This function records lowspeed data
+        #It will only record data where "log" is True 
+        #It sets up a group as normal but it doesn't contain
+        #Any actually data - Instead it logs the start And
+        #stop indicies and mjd of the data.  the actual data
+        #Is just appened into the unlimeted dimension
+        pass
+
     def add_VPHI_data(self,Phi,V,mjd,meta=None,suffix=None):
         #This adds data to the netcdf file 
         #The data arrives as a dict with the bias_points as the key

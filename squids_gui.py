@@ -73,7 +73,7 @@ class sweep_widget(QtGui.QWidget):
         self.layout.addWidget(self.CancelButton,12,0,1,2)
 
         #Add the plotter
-        self.ssa_plot = plot_template()
+        self.ssa_plot = plot_template(legend=True)
         self.layout.addWidget(self.ssa_plot,0,2,-1,1)
 
         #And set the layout
