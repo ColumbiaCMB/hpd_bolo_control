@@ -2,6 +2,7 @@ from PyQt4 import QtCore, QtGui,Qt
 from plot_template import plot_template
 import PyQt4.Qwt5 as Qwt
 from numpy import arange,sqrt
+from custom_qt_widgets import *
 
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
@@ -141,16 +142,28 @@ class bolo_adc_gui(QtGui.QDialog):
         self.record_layout = QtGui.QGridLayout()
         self.LSData_Button = QtGui.QPushButton("Record LS Data")
         self.HSData_Button = QtGui.QPushButton("Record HS Data")
+        self.Cancel_Button = QtGui.QPushButton("Cancel")
         self.record_time_label = QtGui.QLabel("Record Time (s)")
         self.RTime_Input = QtGui.QSpinBox()
+        self.RTime_Input.setProperty("value",60)
+        self.RTime_Input.setMinimum(1)
+        self.RTime_Input.setMaximum(10000)
         self.Sweep_pb = QtGui.QProgressBar()
         self.Sweep_pb.setProperty("value", 0)
+        self.meta_data = QtGui.QPlainTextEdit()
+        self.meta_data.setFixedHeight(75)
+        self.meta_data.setFixedWidth(150)
+        self.filename_label = small_text("No File", "red")
 
         self.record_layout.addWidget(self.LSData_Button,0,0,1,-1)
         self.record_layout.addWidget(self.HSData_Button,1,0,1,-1)
-        self.record_layout.addWidget(self.record_time_label,2,0,1,1)
-        self.record_layout.addWidget(self.RTime_Input,2,1,1,1)
-        self.record_layout.addWidget(self.Sweep_pb,3,0,1,-1)
+        self.record_layout.addWidget(self.Cancel_Button,2,0,1,-1)
+        self.record_layout.addWidget(self.record_time_label,3,0,1,1)
+        self.record_layout.addWidget(self.RTime_Input,3,1,1,1)
+        self.record_layout.addWidget(self.Sweep_pb,4,0,1,-1)
+        self.record_layout.addWidget(self.meta_data,5,0,1,-1)
+        self.record_layout.addWidget(self.filename_label,6,0,1,-1)
+
         self.recordGroupBox.setLayout(self.record_layout)
 
         #And combine these all together
@@ -211,8 +224,10 @@ class bolo_adc_gui(QtGui.QDialog):
     def setup_slots(self):
         QtCore.QObject.connect(self.Reset_Button,QtCore.SIGNAL("clicked()"), self.reset_data_logging)
         QtCore.QObject.connect(self.plot_timer, QtCore.SIGNAL("timeout()"), self.update_plots)
-        QtCore.QObject.connect(self.LSData_Button,QtCore.SIGNAL("toggled(bool)"), self.ls_data_exec)
-      
+        QtCore.QObject.connect(self.LSData_Button,QtCore.SIGNAL("clicked()"), self.ls_data_exec)
+        QtCore.QObject.connect(self.HSData_Button,QtCore.SIGNAL("clicked()"), self.hs_data_exec)
+        QtCore.QObject.connect(self.Cancel_Button,QtCore.SIGNAL("clicked()"), self.cancel_exec)
+
     def reset_data_logging(self):
         self.p.ls_freq = self.ls_samp_freq_Input.value()
         self.p.hs_freq = self.hs_samp_freq_Input.value()
@@ -222,14 +237,26 @@ class bolo_adc_gui(QtGui.QDialog):
         self.p.adc_gain = self.Gain_cb.currentIndex()
         
         #By unchecking the get_ls_data we execute the comedi_reset
-        self.LSData_Button.setChecked(False)
+        #self.LSData_Button.setChecked(False)
 
-    def ls_data_exec(self,state):
-        if state is False:
-            self.p.comedi_reset()
-        else:
-            time = self.RTime_Input.value()
-            self.p.get_ls_data(time)
+    def ls_data_exec(self):
+        period = self.RTime_Input.value()
+        meta = str(self.meta_data.toPlainText())
+        self.p.log_ls_data_start(period,meta)
+        
+    def hs_data_exec(self):
+        pass
+
+    def cancel_exec(self):
+        #This just works with LS data at the moment
+        self.p.cancel_loging()
+
+    def log_data_idle(self,state):
+        self.LSData_Button.setEnabled(state)
+        self.HSData_Button.setEnabled(state)
+        self.RTime_Input.setEnabled(state)
+        self.meta_data.setEnabled(state)
+        self.Cancel_Button.setEnabled(not state)
 
     def update_plots(self):
         fb_x = arange(len(self.p.fb))
@@ -254,3 +281,24 @@ class bolo_adc_gui(QtGui.QDialog):
         self.raw_plots.ssa_plot.plot_region.replot()
         self.fft_plots.fb_plot.plot_region.replot()
         self.fft_plots.ssa_plot.plot_region.replot()
+
+        #And check the data logging for a file etc
+        if self.p.dlog.file_name is None:
+            self.filename_label.set_color_text("No File", "red")
+            self.file_label_prefix = None
+        else:   
+            tmp_txt = "%s " % self.p.dlog.file_name
+            self.filename_label.set_color_text(tmp_txt,"blue")
+            if self.file_label_prefix is None: 
+                self.SaveLabel = small_text("No Info", "blue")
+            else:
+                tmp_txt = "%s" % (self.file_label_prefix)
+                self.SaveLabel.set_color_text(tmp_txt,"green")
+
+        #Check and do things related to logging data
+        self.Sweep_pb.setValue(self.p.ls_progress)
+        if self.p.log_timer.isAlive():
+          self.log_data_idle(False)
+        else:
+            self.log_data_idle(True)
+

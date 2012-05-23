@@ -74,7 +74,13 @@ class data_logging_gui(QtGui.QDialog):
             if not self.p.logging_event.isSet():
                 #Then we are logging_events
                 self.startstopButton.setText("Stop")
-                self.fsize_ac.setText(str(self.p.file_size))
+                if self.p.file_size > 1e3:
+                    ftxt = ("%6.3f kB") % (self.p.file_size/1.0e3)
+                if self.p.file_size > 1e6:
+                    ftxt = ("%6.3f MB") % (self.p.file_size/1.0e6)
+                if self.p.file_size > 1e9:
+                    ftxt = ("%6.3f GB") % (self.p.file_size/1.0e9)
+                self.fsize_ac.setText(ftxt)
             else:
                 self.startstopButton.setText("Start")
             self.startstopButton.setEnabled(True)

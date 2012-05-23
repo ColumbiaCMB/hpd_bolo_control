@@ -18,6 +18,7 @@ class data_logging:
         self.chunksize = 512
         self.reg_speeds = {'reg_1hz' : 0, 'reg_100hz'  : 1, 'reg_5khz' : 2}
         self.file_name = None
+        self.log_streams = False
         self.file_size = 0
         self.top_registers = {}
         self.stream_sources = {}
@@ -33,7 +34,7 @@ class data_logging:
         self.setup_file()
 
         self.addRegGroups()
-        #self.setStream()
+        self.setStream()
         self.rootgrp.sync()
 
                                        
@@ -107,7 +108,23 @@ class data_logging:
         #Any actually data - Instead it logs the start And
         #stop indicies and mjd of the data.  the actual data
         #Is just appened into the unlimeted dimension
-        pass
+        if state is True:
+            temp_date = date_toolkit("now","file")
+            if suffix is None:
+                group_name = "LS_%s" % temp_date
+            else:
+                group_name = "%s_LS_%s" % (suffix,temp_date)
+
+            self.ls_group = self.rootgrp.createGroup(group_name)
+        
+            self.ls_group.start_index_100hz = len(self.dim_100hz)
+            self.ls_group.start_index_5khz = len(self.dim_5khz)
+            self.ls_group.log = meta
+            self.log_streams = True
+        else:
+            self.log_streams = False
+            self.ls_group.end_index_100hz = len(self.dim_100hz)
+            self.ls_group.end_index_5khz = len(self.dim_5khz)
 
     def add_VPHI_data(self,Phi,V,mjd,meta=None,suffix=None):
         #This adds data to the netcdf file 
@@ -206,33 +223,34 @@ class data_logging:
         start_pos_100hz = len(self.dim_100hz)
         start_pos_5khz = len(self.dim_5khz)
 
-        for stream_name in self.stream_sources:
-            if self.stream_sources[stream_name]["log"] is False:
-                continue
-            stream_size =  len(self.stream_sources[stream_name]["buffer"])
-            if stream_size == 0:
-                break
+        if self.log_streams is True:
+            for stream_name in self.stream_sources:
+                if self.stream_sources[stream_name]["log"] is False:
+                    continue
+                stream_size =  len(self.stream_sources[stream_name]["buffer"])
+                if stream_size == 0:
+                    break
 
-            #Not sure this is completely safe - I worry that we could loose
-            #a block of points from the copy to the clear - Should use mutex
-            #Will use mutex but not just yet
+                #Not sure this is completely safe - I worry that we could loose
+                #a block of points from the copy to the clear - Should use mutex
+                #Will use mutex but not just yet
 
-            dim_type = self.rootgrp.variables[stream_name].dimensions[0]
-            if dim_type == "reg_100hz":
-                sp = start_pos_100hz
-            elif dim_type == "reg_5khz":
-                sp = start_pos_5khz
-            else:
-                self.logger.error("WTF - bad dimension")
+                dim_type = self.rootgrp.variables[stream_name].dimensions[0]
+                if dim_type == "reg_100hz":
+                    sp = start_pos_100hz
+                elif dim_type == "reg_5khz":
+                    sp = start_pos_5khz
+                else:
+                    self.logger.error("WTF - bad dimension")
 
-            data = list(self.stream_sources[stream_name]["buffer"])
-            self.stream_sources[stream_name]["buffer"].clear()
-            self.rootgrp.variables[stream_name][sp:] = data
+                data = list(self.stream_sources[stream_name]["buffer"])
+                self.stream_sources[stream_name]["buffer"].clear()
+                self.rootgrp.variables[stream_name][sp:] = data
 
         self.rootgrp.sync()
         #And get the filesize
         tstat = os.stat(self.file_name)
-        self.file_size = tstat.st_size
+        self.file_size = float(tstat.st_size)
         if not self.logging_event.isSet():
             threading.Timer(1,self.log_data).start()
 
@@ -252,7 +270,6 @@ class data_logging:
     def close_file(self):
         if not self.logging_event.isSet():
             self.stop_logging()
-        print "here"
         self.rootgrp.close()
         self.file_name = None
         self.file_size = 0

@@ -15,8 +15,8 @@ from data_logging import *
 class bolo_main():
     def __init__(self):
         self.bb = bolo_board()
-        self.adc = bolo_adcCommunicator()
         self.dl = data_logging()
+        self.adc = bolo_adcCommunicator(data_logging=self.dl)
         self.sq = squids(bolo_board=self.bb,bolo_adc=self.adc,data_logging=self.dl)
         self.default_setup()
         self.quick_setup()
@@ -25,7 +25,7 @@ class bolo_main():
     def default_setup(self):
         #We just start data logging - nothing else
         self.adc.comedi_reset() #reset any state
-        self.adc.get_ls_data(0) #Take data for ever
+        self.adc.take_ls_data() #Take data for ever
 
     def quick_setup(self):
         #this is stuff we really want to do but doesn't

@@ -15,10 +15,12 @@ from bolo_adc_gui import *
 logging.basicConfig()
 
 class bolo_adcCommunicator():
-    def __init__(self,max_buffer=10000):
+    def __init__(self,max_buffer=10000,
+                 data_logging=None):
         self.logger = logging.getLogger('bolo_adc')
         self.logger.setLevel(logging.DEBUG)
         self.max_buffer = max_buffer
+        self.dlog = data_logging
 
         self.fb = collections.deque(maxlen=max_buffer) #ls_freq buffer
         self.fb_nofilt = collections.deque(maxlen=max_buffer) #ls_freq buffer with no filterting
@@ -58,6 +60,7 @@ class bolo_adcCommunicator():
         self.fourier_sa_ds = []
         self.fourier_fb_ds = []
 
+        self.log_timer = threading.Thread()
         self.stop_event = threading.Event()
         self.filter_event = threading.Event()
         self.filter_lock = threading.Lock()
@@ -90,6 +93,7 @@ class bolo_adcCommunicator():
         self.ntaps = 1001
         self.cutoff_freq = 35
         self.downsample_freq = 100
+        self.ls_progress = 0
 
         self.setup_filtering()
 
@@ -138,6 +142,8 @@ class bolo_adcCommunicator():
 
     def start_data_logging(self,state):
         #Tell the code that you want some data
+        #This is for doing IVs VPhi etc and is Internal
+        #It is NOT for logging data to a file
         #First clear the buffer
         if state is True:
             #self.data_lock.acquire()
@@ -193,16 +199,53 @@ class bolo_adcCommunicator():
         #self.data_lock.release()
 
 
-    def get_ls_data(self,period):
+    def take_ls_data(self):
         #This is a wrapper to setup for lowspeed data taking
-        #This is just the filtered outputs
+        #It takes (not logs) data continously
         self.reset_queues()
         #We may as well get all four channels here
         channels = [self.fb_chan, self.sa_chan, self.fb_uf_chan, self.sa_uf_chan]
         gains = [self.adc_gain, self.adc_gain,self.adc_gain, self.adc_gain]
         refs = [c.AREF_DIFF, c.AREF_DIFF,c.AREF_DIFF, c.AREF_DIFF]
         self.speed_flag = "ls"
-        self.get_data(channels,gains,refs,self.ls_freq,period)
+        self.get_data(channels,gains,refs,self.ls_freq,0)
+
+    def log_ls_data_start(self,period,meta=None,suffix=None):
+        #This function records data to the netcfg file 
+        #the way to do this is via setting a flag in the 
+        #data logger and then adding a timer.
+        #We also reset the logging deque
+        self.fb_logging.clear()
+        self.fb_ds_logging.clear()
+        self.sa_logging.clear()
+        self.sa_ds_logging.clear()
+        self.mjd_logging.clear()
+        self.mjd_ds_logging.clear()
+        
+        self.dlog.record_ls_data(True,meta,suffix)
+        #We have a thread to simply update the process and check
+        #when the timer runs out - should be acurate to about a second
+        self.log_ls_data_start_time = datetime.datetime.utcnow()
+        self.ls_period = period #Use as check for percentage plot
+
+        self.log_ls_data_stop_time = self.log_ls_data_start_time + datetime.timedelta(seconds=period)
+        self.log_timer = threading.Thread(target=self.log_ls_thread)
+        self.log_timer.start()
+
+    def log_ls_thread(self):
+        time_now = datetime.datetime.utcnow()
+        dt = time_now - self.log_ls_data_start_time
+        while (dt.seconds < self.ls_period):
+            self.ls_progress = (dt.seconds + dt.microseconds*1.0e-6)*100.0/self.ls_period
+            time_now = datetime.datetime.utcnow()
+            dt = time_now - self.log_ls_data_start_time
+            time.sleep(0.5)
+        self.ls_progress = 100
+        self.dlog.record_ls_data(False)
+
+    def cancel_loging(self):
+        #easiest way is to simply set self.ls_period to 0
+        self.ls_period = 0
 
     def get_hs_data(self,period):
         #This is a wrapper to setup for lowspeed data taking

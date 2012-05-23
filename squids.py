@@ -11,16 +11,6 @@ from numpy import mean
 from resistance_comp import *
 from date_tools import *
 
-class timestamp_match():
-    def __init__(self):
-        pass
-
-    def setup_match(self,in_d,out_d):
-        #First setup  the data
-        self.f_int = interpolate.interp1d(in_d[:,0], in_d[:,1], bounds_error=False)
-        int_values = self.f_int(out_d[:,0])
-
-
 class squids():
     def __init__(self,bolo_board=None,
                  bolo_adc=None,
