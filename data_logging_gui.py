@@ -99,7 +99,6 @@ class data_logging_gui(QtGui.QDialog):
             reglist_item.setCheckState(True)
             reglist_item.setEditable(False)
             for i in self.p.top_registers[name]:
-                print i
                 freq_item = QtGui.QStandardItem("reg_1hz")
                 freq_item.setEditable(False)
                 reg_item = QtGui.QStandardItem(i)

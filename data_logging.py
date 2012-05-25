@@ -53,9 +53,7 @@ class data_logging:
     #We just put these in the top level rootgrp
     def setStream(self):
         for name in self.stream_sources:
-            print name, self.stream_sources[name]["log"]
             if self.stream_sources[name]["log"] is False:
-                print name,"False"
                 continue
             speed = self.stream_sources[name]["speed"]
             self.rootgrp.createVariable(name,'f4',(speed),
@@ -81,15 +79,17 @@ class data_logging:
                 self.rootgrp.groups[name].createVariable(i,'f4',('reg_1hz'),
                                                          zlib=True,chunksizes=[self.chunksize])
 
-    def add_hs_data(self,sa_data,fb_data,freq,mjd=None,prefix=None):
+    def add_hs_data(self,sa_data,fb_data,freq,mjd=None,
+                    meta=None,suffix=None):
         #Ideally an mjd will be supplied of the start time 
         #If not we just add one here
-        if mjd is None:
-            mjd = mjdnow()
-        
-        group_name = "HS_%f" % mjd
-        if prefix is not None:
-            group_name = "%s_%s" % (prefix,group_name)
+        print "ADDING DATA"
+
+        temp_date = date_toolkit("now","file")
+        if suffix is None:
+            group_name = "HS_%s" % temp_date
+        else:
+            group_name = "%s_HS_%s" % (suffix,temp_date)
 
         group = self.rootgrp.createGroup(group_name)
         group.createDimension("n_points",len(sa_data))
@@ -97,6 +97,7 @@ class data_logging:
         sa_var = group.createVariable("SA",'f4',("n_points"),zlib=True)
         fb_var = group.createVariable("FB",'f4',("n_points"),zlib=True)
         group.sample_freq = freq
+        group.log = meta
 
         sa_var[:] = sa_data
         fb_var[:] = fb_data
@@ -157,8 +158,6 @@ class data_logging:
             dim_name = "n_points_%i" % curve_num
             phi_name = "PHI_%i" % curve_num
             v_name = "V_%i" % curve_num
-            print len(phi_data), len(v_data), bias_point
-            print dim_name,phi_name,v_name
             group.createDimension(dim_name,len(phi_data))
             phi_var = group.createVariable(phi_name,'f4',(dim_name),zlib=True)
             v_var = group.createVariable(v_name,'f4',(dim_name),zlib=True)

@@ -61,8 +61,13 @@ class bolo_adcCommunicator():
         self.fourier_fb_ds = []
 
         self.log_timer = threading.Thread()
+        self.filter_thread = threading.Thread()
+        self.collector_thread = threading.Thread()
+
         self.stop_event = threading.Event()
         self.filter_event = threading.Event()
+        self.cdf_log_event = threading.Event()
+
         self.filter_lock = threading.Lock()
         self.data_lock = threading.Lock() #Used for poping data to client
         self.adc_lock = threading.Lock() #Used for poping data to client
@@ -98,7 +103,7 @@ class bolo_adcCommunicator():
         self.setup_filtering()
 
         self.collect_data_flag = False
-
+        self.speed_flag = None
         self.setup_adc()
 
     def setup_filtering(self):
@@ -235,7 +240,8 @@ class bolo_adcCommunicator():
     def log_ls_thread(self):
         time_now = datetime.datetime.utcnow()
         dt = time_now - self.log_ls_data_start_time
-        while (dt.seconds < self.ls_period):
+        self.cdf_log_event.clear()
+        while (dt.seconds < self.ls_period) or not self.cdf_log_event.isSet():
             self.ls_progress = (dt.seconds + dt.microseconds*1.0e-6)*100.0/self.ls_period
             time_now = datetime.datetime.utcnow()
             dt = time_now - self.log_ls_data_start_time
@@ -243,24 +249,23 @@ class bolo_adcCommunicator():
         self.ls_progress = 100
         self.dlog.record_ls_data(False)
 
-    def cancel_loging(self):
-        #easiest way is to simply set self.ls_period to 0
-        self.ls_period = 0
+    def cancel_logging(self):
+        self.cdf_log_event.set()
 
-    def get_hs_data(self,period):
-        #This is a wrapper to setup for lowspeed data taking
-        #This is just the filtered outputs]
-        #no timestamps here just data
-        if period > 10:
-            self.logger.error("Will not take more than 10 seconds of data at 312.5khz")
+    def get_hs_data(self,period,meta=None):
+        if period > 60:
+            self.logger.error("Will not take more than 60 seconds of data at 312.5khz")
             return -1
+        self.hs_meta = meta #Used when logging later no
         channels = [self.fb_uf_chan, self.sa_uf_chan]
         gains = [self.adc_gain, self.adc_gain]
         refs = [c.AREF_DIFF, c.AREF_DIFF]
         self.speed_flag = "hs"
+        self.ls_period = period
         self.get_data(channels,gains,refs,self.hs_freq,period)
         
     def get_data(self,channels,gains,refs,frequency,period):
+        self.collect_data_stop()
         self.comedi_reset()
         self.reset_queues()
         self.setup_filtering()
@@ -273,24 +278,31 @@ class bolo_adcCommunicator():
             self.logger.error("Error executing comedi_command")
             return -1
         if self.speed_flag == "ls":
-            collector_thread = threading.Thread(target=self.ls_collect_data)
+            self.collector_thread = threading.Thread(target=self.ls_collect_data)
+            self.collector_thread.daemon = True
+            self.collector_thread.start()
+        
+            self.filter_thread = threading.Thread(target=self.filter_data)
+            self.filter_thread.daemon = True
+            self.filter_thread.start()
         else:
-            collector_thread = threading.Thread(target=self.hs_collect_data)
-
-        collector_thread.daemon = True
-        collector_thread.start()
-        filter_thread = threading.Thread(target=self.filter_data)
-        filter_thread.daemon = True
-        filter_thread.start()
+            self.collector_thread = threading.Thread(target=self.hs_collect_data)
+            self.collector_thread.daemon = True
+            self.collector_thread.start()
+       
         if period > 0:
-            stop_timer = threading.Timer(period,self.collect_data_stop)
-            stop_timer.start()
-        else:
-            self.logger.info("Taking data indefinitely - watch for memory usage")
+            self.stop_timer = threading.Timer(period,self.collect_data_stop)
+            self.stop_timer.daemon = True
+            self.stop_timer.start()
 
     def collect_data_stop(self):
+        self.cancel_logging()
         self.stop_event.set()
         self.filter_event.set()
+        if self.filter_thread.isAlive():
+            self.filter_thread.join()
+        #if self.collector_thread.isAlive():
+        #    self.collector_thread.join()
 
     def filter_data(self):
         #This thread checks for data in the sa_temp buffer
@@ -363,7 +375,12 @@ class bolo_adcCommunicator():
         front = 0
         back = 0
         hs_data = []
+        self.log_hs_data_start_time = datetime.datetime.utcnow()
+
         while not self.stop_event.isSet():
+            time_now = datetime.datetime.utcnow()
+            dt = time_now - self.log_hs_data_start_time
+            self.ls_progress = (dt.seconds + dt.microseconds*1.0e-6)*100.0/self.ls_period
             front += c.comedi_get_buffer_contents(self.dev,self.subdevice)
             if front < back:
                 self.logger.error("front<back comedi buffer error")
@@ -411,7 +428,15 @@ class bolo_adcCommunicator():
         temp_sa = self.convert_to_real(self.adc_gain,temp_data[:,1])
         self.fb_uf.extend(temp_fb)
         self.sa_uf.extend(temp_sa)
+        self.ls_progress = 100
 
+        #And record the data
+        if self.dlog.file_name is not None:
+            self.dlog.add_hs_data(list(self.sa_uf),list(self.fb_uf),self.hs_freq,
+                                  meta=self.hs_meta)
+
+        #finally restart ls data
+        self.take_ls_data()      
 
     def ls_collect_data(self):
         self.stop_event.clear()
@@ -475,14 +500,12 @@ class bolo_adcCommunicator():
                 self.adc_time = self.adc_time + time_diff
 
             self.filter_lock.release()
-          
-            
             
         #OK so we got a stop call - Halt the command
         #Get the latest data and then reset
         n_count = c.comedi_poll(self.dev,self.subdevice)
         n_count = c.comedi_get_buffer_contents(self.dev,self.subdevice)
-        print "END POLL", n_count
+        print "END LS POLL", n_count
         #if n_count != 0:
         #    start = c.comedi_get_buffer_offset(self.dev,self.subdevice)
          #   data = self.map[start:(start+n_count)]
@@ -500,16 +523,11 @@ class bolo_adcCommunicator():
 
 
     def comedi_reset(self):
-        #First stop  the command
-        self.collect_data_stop()
-        self.stop_event.set()
-        self.filter_event.set()
+        #self.collect_data_stop()
         ret = c.comedi_cancel(self.dev,self.subdevice)
         if ret!=0:
             self.logger.error("Error executing comedi reset")
             return -1
-        #self.reset_queues()
-        #self.setup_filtering()
 
     def prepare_cmd(self,channels,gains,aref,freq):
         #First create the channel setup

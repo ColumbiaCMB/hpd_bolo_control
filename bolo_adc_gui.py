@@ -245,11 +245,13 @@ class bolo_adc_gui(QtGui.QDialog):
         self.p.log_ls_data_start(period,meta)
         
     def hs_data_exec(self):
-        pass
+        period = self.RTime_Input.value()
+        meta = str(self.meta_data.toPlainText())
+        self.p.get_hs_data(period,meta)
 
     def cancel_exec(self):
         #This just works with LS data at the moment
-        self.p.cancel_loging()
+        self.p.cancel_logging()
 
     def log_data_idle(self,state):
         self.LSData_Button.setEnabled(state)

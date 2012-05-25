@@ -281,6 +281,12 @@ class bolo_squids_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.setpoint_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid.setPoint)
 
     def update_plots(self):
+        #Do the idiot check that LS data is running
+        #So that it doesn't complain of empty buffers
+        #filter thread only runs when ls is running
+        if self.p.adc_data.filter_event.isSet() is True:
+            return -1
+
         if self.run_job == "ssa_iv": 
             self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
         elif self.run_job == "ssa_vphi":
