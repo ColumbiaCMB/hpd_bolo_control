@@ -42,10 +42,10 @@ class bolo_main():
         #This sets up a simple logging system
         #We attache the bolo_board registers to it
         self.dl.addRegisters("bolo_board",self.bb.registers)
-        self.dl.addStream("sa",self.adc.sa_logging,"reg_5khz")
-        self.dl.addStream("sa_ds",self.adc.sa_ds_logging,"reg_100hz")
-        self.dl.addStream("fb",self.adc.fb_logging,"reg_5khz")
-        self.dl.addStream("fb_ds",self.adc.fb_ds_logging,"reg_100hz")
+        self.dl.addStream("sa",self.adc.sa_logging,"reg_5khz",self.adc.netcdf_data_lock)
+        self.dl.addStream("sa_ds",self.adc.sa_ds_logging,"reg_100hz",self.adc.netcdf_data_lock)
+        self.dl.addStream("fb",self.adc.fb_logging,"reg_5khz",self.adc.netcdf_data_lock)
+        self.dl.addStream("fb_ds",self.adc.fb_ds_logging,"reg_100hz",self.adc.netcdf_data_lock)
         
     def launch_gui(self):
         self.app = QtGui.QApplication(sys.argv)

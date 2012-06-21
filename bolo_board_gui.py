@@ -56,7 +56,7 @@ class bolo_board_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.enablefb_switch,QtCore.SIGNAL("toggled(bool)"), self.Feedback_switch)
         QtCore.QObject.connect(self.shortint_switch,QtCore.SIGNAL("toggled(bool)"), self.p.short_int_switch)
         QtCore.QObject.connect(self.mod_type_cb,QtCore.SIGNAL("currentIndexChanged(const QString)"), self.mod_cb_changed)
-
+        QtCore.QObject.connect(self.setpoint_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.pid_offset_voltage)
 
         #Connect the timer function to the update 
         QtCore.QObject.connect(self.sweep_timer, QtCore.SIGNAL("timeout()"), self.update_sweep)
@@ -285,7 +285,7 @@ class bolo_board_gui(QtGui.QDialog):
         self.Ims_Input = QtGui.QComboBox()
         for i in time_constants:
              self.Ims_Input.addItem(str(i))
-        self.setpoint_Input = QtGui.QDoubleSpinBox()
+        self.setpoint_Input = bolo_doubleInput()
         self.pi_layout.addWidget(self.pgain_Input,0,1,1,1)
         self.pi_layout.addWidget(self.Ims_Input,1,1,1,1)
         self.pi_layout.addWidget(self.setpoint_Input,2,1,1,1)

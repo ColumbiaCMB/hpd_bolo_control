@@ -51,6 +51,7 @@ class data_logging:
     #deque. It simply pops out the front into the netcdf file 
     #Currently only works with 100Hz data
     #We just put these in the top level rootgrp
+   
     def setStream(self):
         for name in self.stream_sources:
             if self.stream_sources[name]["log"] is False:
@@ -62,7 +63,10 @@ class data_logging:
     def addRegisters(self,name,registers):
         self.top_registers[name] = registers
 
-    def addStream(self,name,st_buffer,speed):
+    #We ideally provide a mutex  - note this is global And
+    #will only relate to the last mutex you add
+    def addStream(self,name,st_buffer,speed,mutex=None):
+        self.mutex = mutex
         if self.reg_speeds.has_key(speed) is False:
             self.logger.error("Incorrect speed register")
             return -1
@@ -218,11 +222,14 @@ class data_logging:
                 variable = self.rootgrp.groups[group_names].variables[reg]
                 variable[slow_reg_size] = data
                 
-        #work on streaming data - we log the current start pos of the dimensions
-        start_pos_100hz = len(self.dim_100hz)
-        start_pos_5khz = len(self.dim_5khz)
-
         if self.log_streams is True:
+            #work on streaming data - we log the current start pos of the dimensions
+            start_pos_100hz = len(self.dim_100hz)
+            start_pos_5khz = len(self.dim_5khz)
+
+            #Do some Mutexing
+            if self.mutex is not None:
+                self.mutex.acquire()
             for stream_name in self.stream_sources:
                 if self.stream_sources[stream_name]["log"] is False:
                     continue
@@ -245,6 +252,9 @@ class data_logging:
                 data = list(self.stream_sources[stream_name]["buffer"])
                 self.stream_sources[stream_name]["buffer"].clear()
                 self.rootgrp.variables[stream_name][sp:] = data
+            
+            if self.mutex is not None:
+                self.mutex.release()
 
         self.rootgrp.sync()
         #And get the filesize

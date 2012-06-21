@@ -85,9 +85,9 @@ class bolo_board():
                           "ssa_fb" : self.ssafb_v,
                           "s2_bias" : self.s2b_v,
                           "s2_fb" : self.s2fb_v,
-                          "rs_bias" : self.rs_v,
+                          "s1_bias" : self.rs_v,
                           "s1_fb" : self.s1fb_v,
-                          "tes_bis" : self.tes_v,
+                          "tes_bias" : self.tes_v,
                           "heater" : self.htr_v,
                           "AUX" : self.aux_v}
 

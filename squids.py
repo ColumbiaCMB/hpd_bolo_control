@@ -135,10 +135,28 @@ class squids():
         self.VPhi_data_y = {}
         self.adc_data.start_data_logging(True) #start filling the data buffer
         for b in bias_steps:
-            #self.bb.s2_bias_voltage(b)
-            ###!!!Fix me here 
-            self.bb.ssa_bias_voltage(b)
-            self.sweep("s2_bias",fb_start,fb_stop,fb_step)
+            self.bb.s2_bias_voltage(b)
+            self.sweep("s2_fb",fb_start,fb_stop,fb_step)
+            self.VPhi_data_x[b] = self.x_cont
+            self.VPhi_data_y[b] = self.y_cont
+        
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
+
+    def s1_VPhi_thread(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
+        self.sweep_thread = threading.Thread(target=self.s1_VPhi,
+                                             args = (fb_start,fb_stop,fb_step,start,stop,n_steps))
+        self.sweep_thread.daemon = True
+        self.sweep_thread.start()
+
+    def s1_VPhi(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
+        #We do a number of sweeps of the feedback at different bias voltages
+        bias_steps = linspace(start,stop,n_steps)
+        self.VPhi_data_x = {}
+        self.VPhi_data_y = {}
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        for b in bias_steps:
+            self.bb.rs_voltage(b)
+            self.sweep("s1_fb",fb_start,fb_stop,fb_step)
             self.VPhi_data_x[b] = self.x_cont
             self.VPhi_data_y[b] = self.y_cont
         
@@ -155,6 +173,29 @@ class squids():
         self.sweep("ssa_bias",ssa_start,ssa_stop,ssa_step,count)
         self.adc_data.start_data_logging(False) #stop filling the data buffer
 
+    def s2_iv_thread(self,ssa_start,ssa_stop,ssa_step,count):
+         self.sweep_thread = threading.Thread(target=self.s2_iv,
+                                             args = (ssa_start,ssa_stop,ssa_step,count))
+         self.sweep_thread.daemon = True
+         self.sweep_thread.start()
+
+    def s2_iv(self,ssa_start,ssa_stop,ssa_step,count=1):
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        self.sweep("s2_bias",ssa_start,ssa_stop,ssa_step,count)
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
+        
+    def s1_iv_thread(self,ssa_start,ssa_stop,ssa_step,count):
+         self.sweep_thread = threading.Thread(target=self.s1_iv,
+                                             args = (ssa_start,ssa_stop,ssa_step,count))
+         self.sweep_thread.daemon = True
+         self.sweep_thread.start()
+
+    def s1_iv(self,ssa_start,ssa_stop,ssa_step,count=1):
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        self.sweep("s1_bias",ssa_start,ssa_stop,ssa_step,count)
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
+    
+        
     def wrapper_sweep_thread(self,name,start,stop,count):
         self.sweep_thread = threading.Thread(target=self.sweep,
                                              args=(name,start,stop,step,count))
@@ -206,6 +247,7 @@ class squids():
 
             #And here we do the resistance compensation for sweeping the squids
             v_corrected = self.res_compensator.correct_batch_voltage(x[ind],y[ind],name)
+            #v_corrected = y[ind]
 
             self.x_cont.extend(x[ind])
             self.y_cont.extend(v_corrected)

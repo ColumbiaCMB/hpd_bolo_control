@@ -71,6 +71,7 @@ class bolo_adcCommunicator():
         self.filter_lock = threading.Lock()
         self.data_lock = threading.Lock() #Used for poping data to client
         self.adc_lock = threading.Lock() #Used for poping data to client
+        self.netcdf_data_lock = threading.Lock() #Used to lock data for writing to disk
 
         self.registers = {}
 
@@ -105,6 +106,10 @@ class bolo_adcCommunicator():
         self.collect_data_flag = False
         self.speed_flag = None
         self.setup_adc()
+
+    def reset_ls_data(self):
+        self.comedi_reset()
+        self.take_ls_data()
 
     def setup_filtering(self):
         deci = self.ls_freq/self.downsample_freq
@@ -241,7 +246,7 @@ class bolo_adcCommunicator():
         time_now = datetime.datetime.utcnow()
         dt = time_now - self.log_ls_data_start_time
         self.cdf_log_event.clear()
-        while (dt.seconds < self.ls_period) or not self.cdf_log_event.isSet():
+        while (dt.seconds < self.ls_period) and not self.cdf_log_event.isSet():
             self.ls_progress = (dt.seconds + dt.microseconds*1.0e-6)*100.0/self.ls_period
             time_now = datetime.datetime.utcnow()
             dt = time_now - self.log_ls_data_start_time
@@ -343,10 +348,12 @@ class bolo_adcCommunicator():
                 self.fb_ds.extend(temp_fb)
                 self.ts_ds.extend(temp_ts)
 
+                self.netcdf_data_lock.acquire()
                 self.sa_ds_logging.extend(temp_sa)
                 self.fb_ds_logging.extend(temp_fb)
                 self.mjd_ds_logging.extend(temp_ts)
-
+                self.netcdf_data_lock.release()
+                
                 #And do some FFTs here if we need to - We have the time
                 self.fourier_sa,self.fourier_freq_sa = mlab.psd(self.sa,
                                                                 NFFT=2056,Fs=self.ls_freq,

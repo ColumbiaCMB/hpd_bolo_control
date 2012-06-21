@@ -229,15 +229,14 @@ class bolo_adc_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.Cancel_Button,QtCore.SIGNAL("clicked()"), self.cancel_exec)
 
     def reset_data_logging(self):
-        self.p.ls_freq = self.ls_samp_freq_Input.value()
-        self.p.hs_freq = self.hs_samp_freq_Input.value()
+        self.p.ls_freq = self.ls_samp_freq_input.value()
+        self.p.hs_freq = self.hs_samp_freq_input.value()
         self.p.ntaps = self.N_Taps_Input.value()
         self.p.cutoff_freq = self.Cutoff_Input.value()
         self.p.downsample_freq = self.DownSample_Input.value()
         self.p.adc_gain = self.Gain_cb.currentIndex()
         
-        #By unchecking the get_ls_data we execute the comedi_reset
-        #self.LSData_Button.setChecked(False)
+        self.p.reset_ls_data()
 
     def ls_data_exec(self):
         period = self.RTime_Input.value()
