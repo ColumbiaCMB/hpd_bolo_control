@@ -36,7 +36,7 @@ class bolo_main():
         self.bb.pgain_switch(True)
         self.bb.tconst_switch(True)
         self.bb.short_int_switch(True)
-        self.sq.setup_res_comp()
+        #self.sq.setup_res_comp()
 
     def setup_logging(self):
         #This sets up a simple logging system

@@ -8,7 +8,7 @@ from squids_gui import *
 from bolo_board_gui import *
 import pid
 from numpy import mean
-from resistance_comp import *
+#from resistance_comp import *
 from date_tools import *
 
 class squids():
@@ -26,7 +26,7 @@ class squids():
             self.bb = bolo_board
         
         self.dlog = data_logging
-        self.setup_res_comp()
+        #self.setup_res_comp()
         self.sweep_thread = threading.Thread()
 
         self.pid = pid.PID()
@@ -39,13 +39,13 @@ class squids():
         self.s2_data_y = []
         self.VPhi_data_x = {}
         self.VPhi_data_y = {}
-
+    """
     def setup_res_comp(self,wire_res=None):
         if wire_res is None:
             self.res_compensator = resistance_compensator(self.bb)
         else:
             self.res_compensator = resistance_compensator(self.bb,wire_res)
-
+    """
     ## This controlls the feedback on the SSA fb
     # channel for tuning second and first stage squids
     # @param self The object pointer
@@ -246,8 +246,8 @@ class squids():
             self.s_v_buffer = array(self.s_v_buffer)[ind_remain].tolist()
 
             #And here we do the resistance compensation for sweeping the squids
-            v_corrected = self.res_compensator.correct_batch_voltage(x[ind],y[ind],name)
-            #v_corrected = y[ind]
+            #v_corrected = self.res_compensator.correct_batch_voltage(x[ind],y[ind],name)
+            v_corrected = y[ind]
 
             self.x_cont.extend(x[ind])
             self.y_cont.extend(v_corrected)

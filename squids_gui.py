@@ -349,7 +349,8 @@ class bolo_squids_gui(QtGui.QDialog):
         setpoint_data = "%+4.3f" % self.p.pid.getPoint()
         self.set_read_label.setText(setpoint_data)
         #meas_size = len(self.p.adc_data.sa_ds) - 1
-        corrected_V = self.p.res_compensator.correct_voltage(self.p.adc_data.sa[-1])
+        #corrected_V = self.p.res_compensator.correct_voltage(self.p.adc_data.sa[-1])
+        corrected_V = self.p.adc_data.sa[-1]
         meas_data = "%+4.3f" % corrected_V
         self.measure_read_label.setText(meas_data)
         error_data = "%+4.3f" % self.p.pid.getError()
