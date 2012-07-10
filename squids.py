@@ -161,6 +161,27 @@ class squids():
             self.VPhi_data_y[b] = self.y_cont
         
         self.adc_data.start_data_logging(False) #stop filling the data buffer
+
+    def s1_fb_VPhi_thread(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
+        self.sweep_thread = threading.Thread(target=self.s1_fb_VPhi,
+                                             args = (fb_start,fb_stop,fb_step,start,stop,n_steps))
+        self.sweep_thread.daemon = True
+        self.sweep_thread.start()
+
+    def s1_fb_VPhi(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
+        #We do a number of sweeps of the feedback at different bias voltages
+        bias_steps = linspace(start,stop,n_steps)
+        self.VPhi_data_x = {}
+        self.VPhi_data_y = {}
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        for b in bias_steps:
+            self.bb.rs_voltage(b)
+            self.sweep("pid_fb",fb_start,fb_stop,fb_step)
+            self.VPhi_data_x[b] = self.x_cont
+            self.VPhi_data_y[b] = self.y_cont
+        
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
+        
         
     def ssa_iv_thread(self,ssa_start,ssa_stop,ssa_step,count):
          self.sweep_thread = threading.Thread(target=self.ssa_iv,
@@ -201,7 +222,7 @@ class squids():
                                              args=(name,start,stop,step,count))
         self.sweep_thread.daemon = True
         self.sweep_thread.start()
-
+        
     def sweep(self,name,start,stop,step,count=1):
        #Sweep is now a low level function - you NEED to turn on loggin elsewhere
         self.bb.wrapper_sweep_voltage(name,start,stop,step,count)
@@ -229,29 +250,35 @@ class squids():
 
             self.adc_data.adc_lock.acquire()
             temp_sa_data  = list(self.adc_data.ls_sa_data)
+            temp_fb_data  = list(self.adc_data.ls_fb_data)
             temp_ts_data  = list(self.adc_data.ls_ts_data)
             self.adc_data.ls_sa_data.clear()
+            self.adc_data.ls_fb_data.clear()
             self.adc_data.ls_ts_data.clear()
             self.adc_data.adc_lock.release()
 
-            f_int = interpolate.interp1d(self.s_ts_buffer, self.s_v_buffer,bounds_error=False)
-            x = f_int(temp_ts_data)
-            y = array(temp_sa_data)
-            ts = array(temp_ts_data)
+            if name != "pid_fb":
+                f_int = interpolate.interp1d(self.s_ts_buffer, self.s_v_buffer,bounds_error=False)
+                x = f_int(temp_ts_data)
+                y = array(temp_sa_data)
+                ts = array(temp_ts_data)
 
-            ind = where(isfinite(x))
-            ind_remain = where(self.s_ts_buffer > temp_ts_data[-1])[0]
+                ind = where(isfinite(x))
+                ind_remain = where(self.s_ts_buffer > temp_ts_data[-1])[0]
 
-            self.s_ts_buffer = array(self.s_ts_buffer)[ind_remain].tolist()
-            self.s_v_buffer = array(self.s_v_buffer)[ind_remain].tolist()
+                self.s_ts_buffer = array(self.s_ts_buffer)[ind_remain].tolist()
+                self.s_v_buffer = array(self.s_v_buffer)[ind_remain].tolist()
 
             #And here we do the resistance compensation for sweeping the squids
             #v_corrected = self.res_compensator.correct_batch_voltage(x[ind],y[ind],name)
-            v_corrected = y[ind]
+                v_corrected = y[ind]
 
-            self.x_cont.extend(x[ind])
-            self.y_cont.extend(v_corrected)
-            self.mjd_cont.extend(ts[ind])
+                self.x_cont.extend(x[ind])
+                self.y_cont.extend(v_corrected)
+                self.mjd_cont.extend(ts[ind])
+            else:
+                self.x_cont.extend(array(temp_fb_data))
+                self.y_cont.extend(array(temp_sa_data))
 
     def write_IV_data(self,name,meta):
         if self.dlog is not None:

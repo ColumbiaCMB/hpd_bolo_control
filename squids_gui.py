@@ -146,6 +146,7 @@ class bolo_squids_gui(QtGui.QDialog):
         self.run_type = {"ssa_iv" : 0,  "ssa_vphi" : 1,
                          "s2_iv" : 2, "s2_vphi" : 3,
                          "s1_iv" : 4, "s1_vphi" : 5,
+                         "s1_fb_iv" : 6, "s1_fb_vphi" : 7,
                          "idle" : -1}
 
         self.good_colors = [Qt.Qt.white,Qt.Qt.cyan, Qt.Qt.red, Qt.Qt.green,Qt.Qt.magenta,Qt.Qt.gray]
@@ -163,6 +164,8 @@ class bolo_squids_gui(QtGui.QDialog):
         self.tabWidget.addTab(self.s2_widget, "S2")
         self.s1_widget = sweep_widget(self.tabWidget)
         self.tabWidget.addTab(self.s1_widget, "S1")
+        self.s1_fb_widget = sweep_widget(self.tabWidget)
+        self.tabWidget.addTab(self.s1_fb_widget, "S1_fb")
         
         #We also need a column for the SSA feedback PID loop
         self.pid_group = QtGui.QGroupBox("SSA PID")
@@ -255,6 +258,7 @@ class bolo_squids_gui(QtGui.QDialog):
         self.vphi_ssa_curves = {} 
         self.vphi_s2_curves = {} 
         self.vphi_s1_curves = {} 
+        self.vphi_s1_fb_curves = {} 
 
         self.ssa_current_curve = Qwt.QwtPlotCurve("Data")
         self.ssa_current_curve.attach(self.ssa_widget.ssa_plot.plot_region)
@@ -267,6 +271,11 @@ class bolo_squids_gui(QtGui.QDialog):
         self.s1_current_curve = Qwt.QwtPlotCurve("S1 Data")
         self.s1_current_curve.attach(self.s1_widget.ssa_plot.plot_region)
         self.s1_current_curve.setPen(Qt.QPen(Qt.Qt.yellow))
+
+        self.s1_fb_current_curve = Qwt.QwtPlotCurve("S1 FB Data")
+        self.s1_fb_current_curve.attach(self.s1_fb_widget.ssa_plot.plot_region)
+        self.s1_fb_current_curve.setPen(Qt.QPen(Qt.Qt.yellow))
+        
         
     def setup_slots(self):
         QtCore.QObject.connect(self.ssa_widget.VIButton,QtCore.SIGNAL("clicked()"), self.run_ssa_VI)
@@ -278,6 +287,9 @@ class bolo_squids_gui(QtGui.QDialog):
 
         QtCore.QObject.connect(self.s1_widget.VIButton,QtCore.SIGNAL("clicked()"), self.run_s1_VI)
         QtCore.QObject.connect(self.s1_widget.VPhiButton,QtCore.SIGNAL("clicked()"), self.run_s1_VPhi)
+
+        QtCore.QObject.connect(self.s1_fb_widget.VIButton,QtCore.SIGNAL("clicked()"), self.run_s1_fb_VI)
+        QtCore.QObject.connect(self.s1_fb_widget.VPhiButton,QtCore.SIGNAL("clicked()"), self.run_s1_fb_VPhi)
         
         QtCore.QObject.connect(self.plot_timer, QtCore.SIGNAL("timeout()"), self.update_plots)
         QtCore.QObject.connect(self.check_timer, QtCore.SIGNAL("timeout()"), self.check_status)
@@ -344,6 +356,23 @@ class bolo_squids_gui(QtGui.QDialog):
                                                      list(self.p.VPhi_data_y[s_bias]))
             #And also update the current curve
             self.s1_current_curve.setData(self.p.x_cont,self.p.y_cont) 
+
+        elif self.run_job == "s1_fb_iv": 
+            self.s1_fb_current_curve.setData(self.p.x_cont,self.p.y_cont)
+        elif self.run_job == "s1_fb_vphi":
+            #Do dumb thing and update each curve
+            #if available - burn those cpu cycles
+            for s_bias in self.p.VPhi_data_x:
+                if not self.vphi_s1_fb_curves.has_key(s_bias):
+                    self.vphi_s1_fb_curves[s_bias] = Qwt.QwtPlotCurve(str(s_bias))
+                    self.vphi_s1_fb_curves[s_bias].attach(self.s1_fb_widget.ssa_plot.plot_region)
+                    color_index = len(self.vphi_s1_fb_curves) % len(self.good_colors)
+                    self.vphi_s1_fb_curves[s_bias].setPen(self.good_colors[color_index])
+                
+                    self.vphi_s1_fb_curves[s_bias].setData(list(self.p.VPhi_data_x[s_bias]),
+                                                     list(self.p.VPhi_data_y[s_bias]))
+            #And also update the current curve
+            self.s1_fb_current_curve.setData(self.p.x_cont,self.p.y_cont) 
             
         #Update the status of the PID loop
         setpoint_data = "%+4.3f" % self.p.pid.getPoint()
@@ -366,6 +395,7 @@ class bolo_squids_gui(QtGui.QDialog):
         self.ssa_widget.ssa_plot.plot_region.replot()
         self.s2_widget.ssa_plot.plot_region.replot()
         self.s1_widget.ssa_plot.plot_region.replot()
+        self.s1_fb_widget.ssa_plot.plot_region.replot()
 
     def run_ssa_feedback(self,state):
         #This starts the feedback loop on the SSA
@@ -388,6 +418,8 @@ class bolo_squids_gui(QtGui.QDialog):
         self.ssa_widget.set_disable_all(state)
         self.s2_widget.set_disable_all(state)
         self.s1_widget.set_disable_all(state)
+        self.s1_fb_widget.set_disable_all(state)
+
         if self.data_saved is False:
             self.SaveButton.setEnabled(state)
         else:
@@ -405,13 +437,6 @@ class bolo_squids_gui(QtGui.QDialog):
                 tmp_txt = "%s: %s " % (self.file_label_prefix,self.p.dlog.file_name)
                 self.SaveLabel.set_color_text(tmp_txt,"green")
 
-    def run_s2_test(self):
-        self.setup_curve()
-        self.run_job = "s2_vphi"
-        self.p.s2_bias_test_thread(self.s2_widget.fb_start_Input.value(),
-                        self.s2_widget.fb_stop_Input.value(),
-                        self.s2_widget.fb_step_Input.value())
-        
     def run_ssa_VPhi(self):
         self.ssa_widget.ssa_plot.plot_region.clear()
         self.setup_curve()
@@ -447,6 +472,18 @@ class bolo_squids_gui(QtGui.QDialog):
                         self.s1_widget.bias_start_Input.value(),
                         self.s1_widget.bias_stop_Input.value(),
                         self.s1_widget.fb_count_Input.value())
+
+    def run_s1_fb_VPhi(self):
+        self.s1_fb_widget.ssa_plot.plot_region.clear()
+        self.setup_curve()
+        self.run_job = "s1_fb_vphi"
+        self.p.s1_fb_VPhi_thread(self.s1_fb_widget.fb_start_Input.value(),
+                        self.s1_fb_widget.fb_stop_Input.value(),
+                        self.s1_fb_widget.fb_step_Input.value(),
+                        self.s1_fb_widget.bias_start_Input.value(),
+                        self.s1_fb_widget.bias_stop_Input.value(),
+                        self.s1_fb_widget.fb_count_Input.value())
+        
         
     def run_ssa_VI(self):
         self.ssa_widget.ssa_plot.plot_region.clear()
@@ -503,6 +540,25 @@ class bolo_squids_gui(QtGui.QDialog):
                                     count)
         
         self.SaveButton.setText("Save S1 VI")
+        self.data_saved = False
+
+    def run_s1_fb_VI(self):
+        self.s1_fb_widget.ssa_plot.plot_region.clear()
+        self.setup_curve()
+        self.run_job = "s1_fb_iv"
+        #This function takes a VI, either continously or a single shot
+        #setup a curve on the plot
+        if self.s1_fb_widget.continuous_check.isChecked() is True:
+            count = -1;
+        else:
+            count = 1;
+        print self.s1_fb_widget.bias_start_Input.value(),self.s1_fb_widget.bias_stop_Input.value(),self.s1_fb_widget.bias_step_Input.value(),  count
+        self.p.s1_fb_iv_thread( self.s1_fb_widget.bias_start_Input.value(),
+                                    self.s1_fb_widget.bias_stop_Input.value(),
+                                    self.s1_fb_widget.bias_step_Input.value(),
+                                    count)
+        
+        self.SaveButton.setText("Save S1 FB VI")
         self.data_saved = False
         
     def save_data(self):
