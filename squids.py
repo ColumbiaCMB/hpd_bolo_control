@@ -88,7 +88,6 @@ class squids():
         #So we set a sweep point and go from there - Can not handle quick changes
         bias_steps = arange(fb_start,fb_stop,fb_step)
         for fb_s in bias_steps:
-            print fb_s
             #first set the position
             self.bb.s2_bias_voltage(fb_s)
             time.sleep(0.1)
@@ -272,14 +271,13 @@ class squids():
             #And here we do the resistance compensation for sweeping the squids
             #v_corrected = self.res_compensator.correct_batch_voltage(x[ind],y[ind],name)
                 v_corrected = y[ind]
-
                 self.x_cont.extend(x[ind])
                 self.y_cont.extend(v_corrected)
                 self.mjd_cont.extend(ts[ind])
             else:
                 self.x_cont.extend(array(temp_fb_data))
                 self.y_cont.extend(array(temp_sa_data))
-
+                
     def write_IV_data(self,name,meta):
         if self.dlog is not None:
             if self.dlog.file_name is not None:

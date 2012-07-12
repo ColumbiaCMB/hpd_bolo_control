@@ -478,7 +478,8 @@ class bolo_adcCommunicator():
             c.comedi_mark_buffer_read(self.dev,self.subdevice,front-back)
             back = front
             self.adc_lock.release()
-            
+
+            #!!!RW247 FIX THIS!!!!!!
             temp_fb = self.convert_to_real(self.adc_gain,dd[:,0])
             temp_sa = self.convert_to_real(self.adc_gain,dd[:,1])
             temp_fb_nofilt = self.convert_to_real(self.adc_gain,dd[:,2])
@@ -541,6 +542,9 @@ class bolo_adcCommunicator():
         nchans = size(channels)
         channel_config = c.chanlist(nchans) #create a chanlist of length nchans
 
+        print channel_config
+        print channels
+        
         for index in range(nchans):
             channel_config[index]=c.cr_pack(channels[index], gains[index], aref[index])
         

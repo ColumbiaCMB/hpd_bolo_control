@@ -160,7 +160,7 @@ class bolo_board():
 
     def tes_bias_ext_switch(self,state):
         if state is True:
-            self.set_switch(self.tes_bias[0],self.tes_bias[1],state)
+            self.set_switch(self.tes_bias[0],self.tes_bias[1],False)
             self.write_register("tes_bias_switch",False)
         self.set_switch(self.tes_bias_external[0],self.tes_bias_external[1],state)
         self.write_register("tes_bias_ext_switch",state)

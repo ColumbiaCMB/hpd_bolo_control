@@ -308,6 +308,7 @@ class bolo_squids_gui(QtGui.QDialog):
 
         if self.run_job == "ssa_iv": 
             self.ssa_current_curve.setData(self.p.x_cont,self.p.y_cont)
+            print len(self.p.x_cont), "poop"
         elif self.run_job == "ssa_vphi":
             #Do dumb thing and update each curve
             #if available - burn those cpu cycles
