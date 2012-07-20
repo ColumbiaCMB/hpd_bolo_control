@@ -335,10 +335,14 @@ class bolo_board():
         #print "Mux Bits :", gmpy.digits(self.data,2).zfill(8)
 
         bit_value = int(((volts + 5)*(2**14))/10)
-        print "DAC Bits :", gmpy.digits(bit_value,2).zfill(16), bit_value
+        if bit_value < 0 or bit_value > 16383:
+            print "DAC Bits out of range:", gmpy.digits(bit_value,2).zfill(16), bit_value
 
-        self.data = (self.data << 16) + bit_value
-        self.send_data(self.data)
+        else:
+            self.data = (self.data << 16) + bit_value
+            self.send_data(self.data)
+            print "DAC Bits out of range:", gmpy.digits(bit_value,2).zfill(16), bit_value
+
         
     def wrapper_sweep_voltage(self,name,start,stop,step,count=1,mod_type="lin"):
         #This is just a wrapper that takes a name rather than

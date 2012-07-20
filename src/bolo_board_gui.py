@@ -286,6 +286,8 @@ class bolo_board_gui(QtGui.QDialog):
         for i in time_constants:
              self.Ims_Input.addItem(str(i))
         self.setpoint_Input = bolo_doubleInput()
+        self.setpoint_Input.setDecimals(4)
+        self.setpoint_Input.setSingleStep(0.0005)
         self.pi_layout.addWidget(self.pgain_Input,0,1,1,1)
         self.pi_layout.addWidget(self.Ims_Input,1,1,1,1)
         self.pi_layout.addWidget(self.setpoint_Input,2,1,1,1)
@@ -390,7 +392,7 @@ class bolo_doubleInput(QtGui.QDoubleSpinBox):
     def __init__(self,gui_parent=None):
         QtGui.QDoubleSpinBox.__init__(self, gui_parent)
 
-        self.setRange(-5,5)
+        self.setRange(-5,4.999)
         self.setDecimals(3)
         self.setSingleStep(0.001)
 
