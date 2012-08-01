@@ -341,7 +341,6 @@ class bolo_board():
         else:
             self.data = (self.data << 16) + bit_value
             self.send_data(self.data)
-            print "DAC Bits out of range:", gmpy.digits(bit_value,2).zfill(16), bit_value
 
         
     def wrapper_sweep_voltage(self,name,start,stop,step,count=1,mod_type="lin"):
