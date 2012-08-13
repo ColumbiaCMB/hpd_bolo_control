@@ -196,7 +196,7 @@ class bolo_board_gui(QtGui.QDialog):
         self.s1_fb_Input = bolo_doubleInput()
         self.tes_bias_Input = bolo_doubleInput()
         self.rs_channel_Input = QtGui.QSpinBox()
-        self.rs_channel_Input.setRange(1,33)
+        self.rs_channel_Input.setRange(0,33)
 
         self.bias_layout.addWidget(self.ssa_bias_Input,1,1,1,1)
         self.bias_layout.addWidget(self.ssa_fb_Input,2,1,1,1)

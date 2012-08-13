@@ -13,6 +13,7 @@ from data_logging import *
 
 ## The main class function
 class bolo_main():
+    ## The init functoin
     def __init__(self):
         self.bb = bolo_board()
         self.dl = data_logging()
