@@ -25,3 +25,5 @@ TAGS
 *.pyc
 \#*\#
 
+#And netcdf files
+*.nc
