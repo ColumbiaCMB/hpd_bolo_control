@@ -214,6 +214,17 @@ class squids():
         self.adc_data.start_data_logging(True) #start filling the data buffer
         self.sweep("s1_bias",ssa_start,ssa_stop,ssa_step,count)
         self.adc_data.start_data_logging(False) #stop filling the data buffer
+
+    def tes_sweep_thread(self,ssa_start,ssa_stop,ssa_step,count):
+         self.sweep_thread = threading.Thread(target=self.tes_sweep,
+                                             args = (ssa_start,ssa_stop,ssa_step,count))
+         self.sweep_thread.daemon = True
+         self.sweep_thread.start()
+
+    def tes_sweep(self,ssa_start,ssa_stop,ssa_step,count=1):
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        self.sweep("tes_bias",ssa_start,ssa_stop,ssa_step,count)
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
     
         
     def wrapper_sweep_thread(self,name,start,stop,count):

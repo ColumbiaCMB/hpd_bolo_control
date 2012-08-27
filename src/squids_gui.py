@@ -147,6 +147,7 @@ class bolo_squids_gui(QtGui.QDialog):
                          "s2_iv" : 2, "s2_vphi" : 3,
                          "s1_iv" : 4, "s1_vphi" : 5,
                          "s1_fb_iv" : 6, "s1_fb_vphi" : 7,
+                         "tes_seep" : 8,
                          "idle" : -1}
 
         self.good_colors = [Qt.Qt.white,Qt.Qt.cyan, Qt.Qt.red, Qt.Qt.green,Qt.Qt.magenta,Qt.Qt.gray]
@@ -166,6 +167,8 @@ class bolo_squids_gui(QtGui.QDialog):
         self.tabWidget.addTab(self.s1_widget, "S1")
         self.s1_fb_widget = sweep_widget(self.tabWidget)
         self.tabWidget.addTab(self.s1_fb_widget, "S1_fb")
+        self.tes_widget = sweep_widget(self.tabWidget)
+        self.tabWidget.addTab(self.tes_widget, "TES")
         
         #We also need a column for the SSA feedback PID loop
         self.pid_group = QtGui.QGroupBox("SSA PID")
@@ -259,6 +262,7 @@ class bolo_squids_gui(QtGui.QDialog):
         self.vphi_s2_curves = {} 
         self.vphi_s1_curves = {} 
         self.vphi_s1_fb_curves = {} 
+        self.tes_curves = {} 
 
         self.ssa_current_curve = Qwt.QwtPlotCurve("Data")
         self.ssa_current_curve.attach(self.ssa_widget.ssa_plot.plot_region)
@@ -275,7 +279,10 @@ class bolo_squids_gui(QtGui.QDialog):
         self.s1_fb_current_curve = Qwt.QwtPlotCurve("S1 FB Data")
         self.s1_fb_current_curve.attach(self.s1_fb_widget.ssa_plot.plot_region)
         self.s1_fb_current_curve.setPen(Qt.QPen(Qt.Qt.yellow))
-        
+
+        self.tes_current_curve = Qwt.QwtPlotCurve("TES Data")
+        self.tes_current_curve.attach(self.tes_widget.ssa_plot.plot_region)
+        self.tes_current_curve.setPen(Qt.QPen(Qt.Qt.yellow))
         
     def setup_slots(self):
         QtCore.QObject.connect(self.ssa_widget.VIButton,QtCore.SIGNAL("clicked()"), self.run_ssa_VI)
@@ -290,6 +297,9 @@ class bolo_squids_gui(QtGui.QDialog):
 
         QtCore.QObject.connect(self.s1_fb_widget.VIButton,QtCore.SIGNAL("clicked()"), self.run_s1_fb_VI)
         QtCore.QObject.connect(self.s1_fb_widget.VPhiButton,QtCore.SIGNAL("clicked()"), self.run_s1_fb_VPhi)
+
+        QtCore.QObject.connect(self.tes_widget.VIButton,QtCore.SIGNAL("clicked()"), self.run_tes_sweeo)
+
         
         QtCore.QObject.connect(self.plot_timer, QtCore.SIGNAL("timeout()"), self.update_plots)
         QtCore.QObject.connect(self.check_timer, QtCore.SIGNAL("timeout()"), self.check_status)
@@ -374,6 +384,9 @@ class bolo_squids_gui(QtGui.QDialog):
                                                      list(self.p.VPhi_data_y[s_bias]))
             #And also update the current curve
             self.s1_fb_current_curve.setData(self.p.x_cont,self.p.y_cont) 
+
+        elif self.run_job == "tes_sweep": 
+            self.tes_current_curve.setData(self.p.x_cont,self.p.y_cont)
             
         #Update the status of the PID loop
         setpoint_data = "%+4.3f" % self.p.pid.getPoint()
@@ -397,6 +410,8 @@ class bolo_squids_gui(QtGui.QDialog):
         self.s2_widget.ssa_plot.plot_region.replot()
         self.s1_widget.ssa_plot.plot_region.replot()
         self.s1_fb_widget.ssa_plot.plot_region.replot()
+        self.tes_widget.ssa_plot.plot_region.replot()
+
 
     def run_ssa_feedback(self,state):
         #This starts the feedback loop on the SSA
@@ -420,6 +435,7 @@ class bolo_squids_gui(QtGui.QDialog):
         self.s2_widget.set_disable_all(state)
         self.s1_widget.set_disable_all(state)
         self.s1_fb_widget.set_disable_all(state)
+        self.tes_widget.set_disable_all(state)
 
         if self.data_saved is False:
             self.SaveButton.setEnabled(state)
@@ -557,6 +573,25 @@ class bolo_squids_gui(QtGui.QDialog):
         self.p.s1_fb_iv_thread( self.s1_fb_widget.bias_start_Input.value(),
                                     self.s1_fb_widget.bias_stop_Input.value(),
                                     self.s1_fb_widget.bias_step_Input.value(),
+                                    count)
+        
+        self.SaveButton.setText("Save S1 FB VI")
+        self.data_saved = False
+
+    def run_tes_sweep(self):
+        self.tes_widget.ssa_plot.plot_region.clear()
+        self.setup_curve()
+        self.run_job = "tes_sweep"
+        #This function takes a VI, either continously or a single shot
+        #setup a curve on the plot
+        if self.tes_widget.continuous_check.isChecked() is True:
+            count = -1;
+        else:
+            count = 1;
+        print self.tes_widget.bias_start_Input.value(),self.tes_widget.bias_stop_Input.value(),self.tes_widget.bias_step_Input.value(),  count
+        self.p.tes_sweep_thread( self.tes__widget.bias_start_Input.value(),
+                                    self.tes_widget.bias_stop_Input.value(),
+                                    self.tes_widget.bias_step_Input.value(),
                                     count)
         
         self.SaveButton.setText("Save S1 FB VI")
