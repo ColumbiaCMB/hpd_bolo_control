@@ -10,6 +10,7 @@ import pid
 from numpy import mean
 #from resistance_comp import *
 from date_tools import *
+import time
 
 class squids():
     def __init__(self,bolo_board=None,
@@ -59,7 +60,8 @@ class squids():
         self.pid.setPoint(setpoint)
         while not self.pid_event.isSet():
             #We use SA_ds as measure
-            corrected_V = self.res_compensator.correct_voltage(self.adc_data.sa[-1])
+            corrected_V = self.adc_data.sa_ds[-1]
+#            corrected_V = self.res_compensator.correct_voltage(self.adc_data.sa[-1])
             pid_out = self.pid.update(corrected_V)
             new_voltage = pid_out
             self.bb.ssa_fb_voltage(new_voltage)
@@ -226,7 +228,18 @@ class squids():
         self.sweep("tes_bias",ssa_start,ssa_stop,ssa_step,count)
         self.adc_data.start_data_logging(False) #stop filling the data buffer
     
-        
+
+    def tes_iv_sweep_thread(self,ssa_start,ssa_stop,ssa_step,count):
+         self.sweep_thread = threading.Thread(target=self.tes_iv_sweep,
+                                             args = (ssa_start,ssa_stop,ssa_step,count))
+         self.sweep_thread.daemon = True
+         self.sweep_thread.start()
+
+    def tes_iv_sweep(self,ssa_start,ssa_stop,ssa_step,count=1):
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        self.sweep("tes_bias",ssa_start,ssa_stop,ssa_step,count)
+        self.adc_data.start_data_logging(False) #stop filling the data buffer
+
     def wrapper_sweep_thread(self,name,start,stop,count):
         self.sweep_thread = threading.Thread(target=self.sweep,
                                              args=(name,start,stop,step,count))
@@ -242,7 +255,29 @@ class squids():
         self.s_ts_buffer = []
         self.s_v_buffer = [] 
 
-        while self.bb.sweep_thread.isAlive():
+        # GJ 2012.09.06 attempt to fix problem where some data is not included in the sweep.
+        # We think the thread is dying with data still in the buffers so the following original line
+        # does not read out that last bit of data
+        
+        # while self.bb.sweep_thread.isAlive(): #original line
+        
+        # instead, we'll have a state variable, either 'running' while the thread is alive, 'waiting' for the wait time after the thread dies, or 'done' for when the wait is finished
+        
+        state = 'running'
+        start_wait = None
+        while state != 'done':
+            if not self.bb.sweep_thread.isAlive():
+                if state == 'waiting':
+                    if time.time() - start_wait > 1.0: # if more than 1.0 seconds have elapsed since the thread died
+                        state = 'done'
+                        print "finished waiting for sleep thread"
+                    else:
+                        pass # continue through the loop
+                else: #state is running and thread has just died
+                    state = 'waiting'
+                    start_wait = time.time()
+                    print "sweep thread died, waiting"
+                        
             if len(self.adc_data.ls_ts_data) < 2 or len(self.bb.sweep_ts_data) < 2:
                 time.sleep(0.1)
                 continue
@@ -270,7 +305,11 @@ class squids():
             if name != "pid_fb":
                 f_int = interpolate.interp1d(self.s_ts_buffer, self.s_v_buffer,bounds_error=False)
                 x = f_int(temp_ts_data)
-                y = array(temp_sa_data)
+                if name == "tes_bias":
+                    y = array(temp_fb_data)
+                else:
+                    y = array(temp_sa_data)
+
                 ts = array(temp_ts_data)
 
                 ind = where(isfinite(x))
