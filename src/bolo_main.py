@@ -10,6 +10,7 @@ from bolo_board import *
 from bolo_adc import *
 from squids import *
 from data_logging import *
+import IPython
 
 ## The main class function
 class bolo_main():
@@ -63,4 +64,8 @@ class bolo_main():
 if __name__ == "__main__":
     main_b = bolo_main()
     main_b.launch_gui()
+    try:
+        IPython.embed()
+    except AttributeError:
+        IPython.Shell.IPShellEmbed()() 
     sys.exit(main_b.app.exec_())
