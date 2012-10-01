@@ -14,11 +14,13 @@ class bolo_main_gui(QtGui.QWidget):
         self.adcButton = QtGui.QPushButton("ADC Control")
         self.squidButton = QtGui.QPushButton("Squid Control")
         self.dataButton = QtGui.QPushButton("Data Logging")
+        self.fridgeButton = QtGui.QPushButton("Fridge Control")
 
         self.button_layout.addWidget(self.boardButton)
         self.button_layout.addWidget(self.adcButton)
         self.button_layout.addWidget(self.squidButton)
         self.button_layout.addWidget(self.dataButton)
+        self.button_layout.addWidget(self.fridgeButton)
 
         self.setLayout(self.button_layout)
 
@@ -27,6 +29,7 @@ class bolo_main_gui(QtGui.QWidget):
           QtCore.QObject.connect(self.adcButton,QtCore.SIGNAL("clicked()"), self.show_adc)
           QtCore.QObject.connect(self.squidButton,QtCore.SIGNAL("clicked()"), self.show_squid)
           QtCore.QObject.connect(self.dataButton,QtCore.SIGNAL("clicked()"), self.show_data)
+          QtCore.QObject.connect(self.fridgeButton,QtCore.SIGNAL("clicked()"),self.show_fridge)
 
     def show_board(self):
         self.p.bb_gui.show()
@@ -39,3 +42,6 @@ class bolo_main_gui(QtGui.QWidget):
 
     def show_data(self):
         self.p.data_gui.show()
+
+    def show_fridge(self):
+        self.p.fridge_gui.show()

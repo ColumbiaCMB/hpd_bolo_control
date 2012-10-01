@@ -9,6 +9,7 @@ from bolo_main_gui import *
 from bolo_board import *
 from bolo_adc import *
 from squids import *
+from fridge_gui import *
 from data_logging import *
 import IPython
 
@@ -58,6 +59,7 @@ class bolo_main():
         self.adc_gui = bolo_adc_gui(self.adc,self.gui)
         self.squid_gui = bolo_squids_gui(self.sq,self.gui)
         self.data_gui = data_logging_gui(self.dl,self.gui)
+        self.fridge_gui = Fridge_GUI(parent=self.gui)
 
         self.gui.show()
 
