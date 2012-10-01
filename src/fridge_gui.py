@@ -11,8 +11,8 @@ import logging
 
 class Fridge_GUI(QtGui.QWidget):
 
-    def __init__(self):
-        super(Fridge_GUI,self).__init__()
+    def __init__(self, parent=None):
+        QtGui.QWidget.__init__(self, parent)
 
         #Set Variables
         self.WAITTIME = 20
