@@ -9,10 +9,10 @@ import pygcp.servers.sim900.sim900Client as sc
 from time import sleep
 import logging
 
-class Fridge_GUI(QtGui.QWidget):
+class Fridge_GUI(QtGui.QDialog):
 
-    def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+    def __init__(self, gui_parent=None):
+        QtGui.QDialog.__init__(self, gui_parent)
 
         #Set Variables
         self.WAITTIME = 20
@@ -233,7 +233,7 @@ class Fridge_GUI(QtGui.QWidget):
         self.setLayout(vbox)
 
         #Display Fridge Cycle Window
-        self.show()
+        #self.show()
 
         #Create Timer
         self.timer = QtCore.QTimer(self)
@@ -266,8 +266,8 @@ class Fridge_GUI(QtGui.QWidget):
         self.salt_temp_value.setText(str(temp_pil))
         temp_fourk = self.sim900.data["therm_temperature"][2]
         self.PT4K_temp_value.setText(str(temp_fourk))
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
     def fullcycle(self):
         #Completes all 4 procedures, sequentially
@@ -282,8 +282,8 @@ class Fridge_GUI(QtGui.QWidget):
 
         #First send commands to make sure that sim900 is set to sensible values
         self.status_value.setText("Setting sim900 to properly-tuned values")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.sim900.setLimLow(self.MIN_OUTPUT)
         self.min_output_value.setText(str(self.MIN_OUTPUT))
         self.sim900.setLimHigh(self.MAX_OUTPUT)
@@ -305,21 +305,21 @@ class Fridge_GUI(QtGui.QWidget):
         self.ramp_rate_value.setText(str(self.RAMP_DOWN))
         self.sim900.setRampOn(False)
         self.ramp_state_value.setText("OFF")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Switch PID Output to Manual Mode
         self.status_value.setText("Switching PID to Manual Mode")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.sim900.fetchDict()
         pid_output = self.sim900.data["pid_output_mon"]
         self.sim900.setManualOutput(pid_output)
         self.output_voltage_value.setText(str(pid_output))
         self.sim900.setPIDControl(False)
         self.PID_state_value.setText("MANUAL")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Have user set PID input to measure Current
         response = ""
@@ -337,8 +337,8 @@ class Fridge_GUI(QtGui.QWidget):
 
         #Set the Current-Setpoint to current value to prevent jumping
         self.status_value.setText("Setting Current_Setpoint to current value")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.sim900.fetchDict()
         curr_now = self.sim900.data["pid_measure_mon"]
         self.current_setpoint_value.setValue(curr_now)
@@ -346,18 +346,18 @@ class Fridge_GUI(QtGui.QWidget):
         self.ramp_rate_value.setText(str(self.RAMP_DOWN))
         self.sim900.setRampOn(True)
         self.ramp_state_value.setText("ON")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Set Current-Setpoint to 0.0, and then turn on the PID to begin ramping
         self.status_value.setText("Starting Rampdown to Zero Current")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.current_setpoint_value.setValue(0.0)
         self.sim900.setPIDControl(True)
         self.PID_state_value.setText("AUTO")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Wait until Current is below required value (MIN_CURR)
         self.sim900.fetchDict()
@@ -373,8 +373,8 @@ class Fridge_GUI(QtGui.QWidget):
 
         #Once Current falls close enough to Zero, set Manual Output to Zero
         self.status_value.setText("Setting Manual Output to Zero")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.sim900.setRampOn(False)
         self.ramp_state_value.setText("OFF")
         self.sim900.setManualOutput(0.0)
@@ -388,15 +388,15 @@ class Fridge_GUI(QtGui.QWidget):
             sleep(3)
             self.update()
             self.status_value.setText("Waiting for user to switch to Mag Cycle")
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             response = raw_input("Is it switched to Mag Cycle? - Type 'yes' to continue: ")
 
         #Double-check that PID settings are correct for ramping up
         self.update()
         self.status_value.setText("Preparing to ramp up Current")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.current_setpoint_value.setValue(0.0)
         self.sim900.setRampRate(self.RAMP_UP)
         self.ramp_rate_value.setText(str(self.RAMP_UP))
@@ -404,14 +404,14 @@ class Fridge_GUI(QtGui.QWidget):
         self.ramp_state_value.setText("ON")
         self.sim900.setPIDControl(True)
         self.PID_state_value.setText("AUTO")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Begin to ramp up Current to MAX_CURR
         self.update()
         self.status_value.setText("Ramping Current up to 9.4")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.current_setpoint_value.setValue(self.MAX_CURR)
 
         #If self.REMAG is set to "True", we will monitor when the salt temperature equals the 4K-stage temperature
@@ -425,8 +425,8 @@ class Fridge_GUI(QtGui.QWidget):
             temp_fourk = self.sim900.data["therm_temperature"][2]
             while temp_pil < temp_fourk:
                 self.status_value.setText("Waiting for salt temperature to exceed 4K-stage temperature")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 sleep(20)
                 self.update()
                 self.sim900.fetchDict()
@@ -439,8 +439,8 @@ class Fridge_GUI(QtGui.QWidget):
                 sleep(3)
                 self.update()
                 self.status_value.setText("Waiting for user to close the heatswitch")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Is the heatswitch closed? - Type 'yes' to continue: ")
 
         #When the PID is ramping, the ramp_status = 2
@@ -451,8 +451,8 @@ class Fridge_GUI(QtGui.QWidget):
         curr_now = self.sim900.data["pid_measure_mon"]
         while ramp_status == self.RAMPING:
             self.status_value.setText("Ramping Current up to 9.4")
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             sleep(60)
             self.update()
             self.sim900.fetchDict()
@@ -467,8 +467,8 @@ class Fridge_GUI(QtGui.QWidget):
                 sleep(3)
                 self.update()
                 self.status_value.setText("Waiting for user to open then close heatswitch")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Has the heatswitch been opened, then closed? - Type 'yes' to continue: ")
 
         #Tell user that warmup procedure is complete
@@ -485,8 +485,8 @@ class Fridge_GUI(QtGui.QWidget):
         if self.FULL_CYCLE != True:
             #First send commands to make sure that sim900 is set to sensible values
             self.status_value.setText("Setting sim900 to properly-tuned values")
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             self.sim900.setLimLow(self.MIN_OUTPUT)
             self.min_output_value.setText(str(self.MIN_OUTPUT))
             self.sim900.setLimHigh(self.MAX_OUTPUT)
@@ -511,8 +511,8 @@ class Fridge_GUI(QtGui.QWidget):
             self.current_setpoint_value.setValue(self.MAX_CURR)
             self.sim900.setPIDControl(True)
             self.PID_state_value.setText("AUTO")
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             
             #Make sure heatswitch is closed
             response = ""
@@ -520,15 +520,15 @@ class Fridge_GUI(QtGui.QWidget):
                 sleep(3)
                 self.update()
                 self.status_value.setText("Waiting for user to check heatswitch")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Is the heatswitch closed? - Type 'yes' to continue: ")
 
         #Check to see whether it will be necessary to operate the heatswitch
         self.update()
         self.status_value.setText("Initiating Dump Heat Procedure")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         pre_wait_time = self.WAITTIME - 30
         if pre_wait_time < 0:
             self.logger.info("Wait time is less than 30 min... Don't operate the heatswitch")
@@ -543,8 +543,8 @@ class Fridge_GUI(QtGui.QWidget):
         for i in xrange(pre_wait_time):
             self.update()
             self.status_value.setText("Dumping heat... %f complete" % (i*100.0/self.WAITTIME))
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             disp_msg = "Waiting %i of %i minutes... %f complete" % (i,self.WAITTIME,i*100.0/self.WAITTIME)
             self.logger.info(disp_msg)
             sleep(60)
@@ -557,15 +557,15 @@ class Fridge_GUI(QtGui.QWidget):
                 sleep(3)
                 self.update()
                 self.status_value.setText("Waiting for user to open then close heatswitch")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Has the heatswitch been opened, then closed? - Type 'yes' to continue: ")
 
             for i in xrange(pre_wait_time,self.WAITTIME):
                 self.update()
                 self.status_value.setText("Dumping heat... %5.2f complete" % (i*100.0/self.WAITTIME))
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 disp_msg = "Waiting %i of %i minutes... %5.2f complete" % (i,self.waittime,i*100.0/self.WAITTIME)
                 self.logger.info(disp_msg)
                 sleep(60)
@@ -573,8 +573,8 @@ class Fridge_GUI(QtGui.QWidget):
         #Tell user that dumpheat procedure is complete
         self.logger.info("Wait period over - Demag when ready")
         self.status_value.setText("Finished dumping heat!")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
     def cooldown(self):
         #This procedure slowly ramps down the Magnet Current to 0.0
@@ -587,14 +587,14 @@ class Fridge_GUI(QtGui.QWidget):
                 sleep(3)
                 self.update()
                 self.status_value.setText("Waiting for user to open heatswitch")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Has the heatswitch been opened? - Type 'yes' to continue: ")
 
         #Make sure that sim900 is set to sensible values
         self.status_value.setText("Setting sim900 to properly-tuned values")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.sim900.setLimLow(self.MIN_OUTPUT)
         self.min_output_value.setText(str(self.MIN_OUTPUT))
         self.sim900.setLimHigh(self.MAX_OUTPUT)
@@ -612,14 +612,14 @@ class Fridge_GUI(QtGui.QWidget):
         self.sim900.setDerivOn(False)
         self.derivative_state_value.setText("OFF")
         self.derivative_gain_value.setText("N/A")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Set PID to ramp Current down to 0.0
         self.update()
         self.status_value.setText("Beginning to ramp down Current to 0.0")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         self.sim900.fetchDict()
         faa_pil_temp = self.sim900.data["bridge_temp_value"]
         self.sim900.setRampRate(self.RAMP_DOWN)
@@ -629,8 +629,8 @@ class Fridge_GUI(QtGui.QWidget):
         self.sim900.setPIDControl(True)
         self.PID_state_value.setText("AUTO")
         self.current_setpoint_value.setValue(0.0)
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #We can check whether we are close to 0.0 Current by checking the ramp_status
         self.update()
@@ -639,8 +639,8 @@ class Fridge_GUI(QtGui.QWidget):
         curr_now = self.sim900.data["pid_measure_mon"]
         while ramp_status == self.RAMPING:
             self.status_value.setText("Ramping Current down to 0.0")
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             sleep(60)
             self.update()
             self.sim900.fetchDict()
@@ -655,8 +655,8 @@ class Fridge_GUI(QtGui.QWidget):
         curr_now = self.sim900.data["pid_measure_mon"]
         while curr_now > self.MIN_CURR:
             self.status_value.setText("Checking to make sure Current is below MIN_CURR")
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             sleep(5)
             self.update()
             self.sim900.fetchDict()
@@ -671,14 +671,14 @@ class Fridge_GUI(QtGui.QWidget):
         self.output_voltage_value.setText(0.0)
         self.sim900.setPIDControl(False)
         self.PID_state_value.setText("MANUAL")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Notify user that cooldown procedure is complete
         self.logger.info("Demag Complete")
         self.status_value.setText("Finished Cooling Down!")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
     def regulate(self):
         #In this procedure, we maintain the temperature setpoint of the salt pills
@@ -692,8 +692,8 @@ class Fridge_GUI(QtGui.QWidget):
         while response != "yes":
                 sleep(3)
                 self.status_value.setText("Waiting for user to disconnect heatswitch power")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Is the heatswitch powered down and disconnected? - Type 'yes' to continue: ")
 
         #Switch PID input to measure Bridge(salt) temperature
@@ -701,8 +701,8 @@ class Fridge_GUI(QtGui.QWidget):
         while response != "yes":
                 sleep(3)
                 self.status_value.setText("Waiting for user to to set PID input to measure Bridge Temperature")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Is the PID input set to measure Bridge Temperature? - Type 'yes' to continue: ")
 
         #Switch to Regulate
@@ -710,8 +710,8 @@ class Fridge_GUI(QtGui.QWidget):
         while response != "yes":
                 sleep(3)
                 self.status_value.setText("Waiting for user to switch to Regulate")
-                app.processEvents()
-                app.processEvents()
+                #app.processEvents()
+                #app.processEvents()
                 response = raw_input("Is it switched to Regulate? - Type 'yes' to continue: ")
 
         #Set PID to begin regulating bridge temperature
@@ -723,41 +723,42 @@ class Fridge_GUI(QtGui.QWidget):
         self.temp_setpoint_value.setValue(self.SETPOINT)
         self.sim900.setPIDControl(True)
         self.PID_state_value.setText("AUTO")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Notify user that the PID is now regulating temperature
         self.logger.info("Now Regulating")
         self.status_value.setText("Now regulating salt temperature")
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
 
         #Update GUI every 5 seconds
         response = ""
         while response != "yes":
             sleep(5)
             self.update()
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             response = raw_input("Are you finished regulating? - Type 'yes' to terminate procedure: ")
 
     def dummyfunction(self):
         self.status_value.setText("starting dummy function")
         print str(self.status_value.text())
-        app.processEvents()
-        app.processEvents()
+        #app.processEvents()
+        #app.processEvents()
         sleep(2)
         for i in xrange(1,4):
             self.status_value.setText("doing dummy function %i" % (i))
             print str(self.status_value.text())
-            app.processEvents()
-            app.processEvents()
+            #app.processEvents()
+            #app.processEvents()
             sleep(2)
         self.status_value.setText("Ready")
 
-app = QtGui.QApplication(sys.argv)
+#app = QtGui.QApplication(sys.argv)
 
 def main():
+    app = QtGui.QApplication(sys.argv)
     fg = Fridge_GUI()
     sys.exit(app.exec_())
 

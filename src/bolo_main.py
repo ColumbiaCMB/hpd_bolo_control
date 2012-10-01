@@ -59,7 +59,7 @@ class bolo_main():
         self.adc_gui = bolo_adc_gui(self.adc,self.gui)
         self.squid_gui = bolo_squids_gui(self.sq,self.gui)
         self.data_gui = data_logging_gui(self.dl,self.gui)
-        self.fridge_gui = Fridge_GUI(parent=self.gui)
+        self.fridge_gui = Fridge_GUI(gui_parent=self.gui)
 
         self.gui.show()
 
@@ -69,5 +69,5 @@ if __name__ == "__main__":
     try:
         IPython.embed()
     except AttributeError:
-        IPython.Shell.IPShellEmbed()() 
+        IPython.Shell.IPShellEmbed()()
     sys.exit(main_b.app.exec_())
