@@ -11,6 +11,7 @@ from bolo_adc import *
 from squids import *
 from fridge_gui import *
 from data_logging import *
+import pygcp.servers.sim900.sim900Client as sc
 import IPython
 
 ## The main class function
@@ -21,6 +22,7 @@ class bolo_main():
         self.dl = data_logging()
         self.adc = bolo_adcCommunicator(data_logging=self.dl)
         self.sq = squids(bolo_board=self.bb,bolo_adc=self.adc,data_logging=self.dl)
+        self.sim900 = sc.sim900Client(hostname="192.168.1.152")
         self.default_setup()
         self.quick_setup()
         self.setup_logging()
@@ -59,7 +61,7 @@ class bolo_main():
         self.adc_gui = bolo_adc_gui(self.adc,self.gui)
         self.squid_gui = bolo_squids_gui(self.sq,self.gui)
         self.data_gui = data_logging_gui(self.dl,self.gui)
-        self.fridge_gui = Fridge_GUI(gui_parent=self.gui)
+        self.fridge_gui = fridge_gui(simclient=self.sim900, gui_parent=self.gui)
 
         self.gui.show()
 

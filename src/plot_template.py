@@ -26,9 +26,13 @@ class plot_template(QtGui.QWidget):
         self.zoomButton = QtGui.QPushButton("Zoom")
         self.zoomButton.setCheckable(True)
         self.xstart_label = QtGui.QLabel("xstart")
+        self.xstart_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
         self.xend_label = QtGui.QLabel("xend")
+        self.xend_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
         self.ystart_label = QtGui.QLabel("ystart")
+        self.ystart_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
         self.yend_label = QtGui.QLabel("yend")
+        self.yend_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
         self.auto_check = QtGui.QCheckBox("Auto")
         self.auto_check.setChecked(True)
         
