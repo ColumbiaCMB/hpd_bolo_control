@@ -68,7 +68,7 @@ class bolo_main():
 if __name__ == "__main__":
     main_b = bolo_main()
     main_b.launch_gui()
-    use_ipyhon = False
+    use_ipython = False
     if use_ipython:
         try:
             IPython.embed()
