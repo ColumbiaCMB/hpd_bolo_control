@@ -36,6 +36,9 @@ class bolo_adcCommunicator():
         self.sa_uf = collections.deque()
         self.sa_temp = collections.deque(maxlen=max_buffer) #For FIR filtering
         self.sa_ds =  collections.deque(maxlen=max_buffer)
+        
+        self.mon = collections.deque(maxlen=max_buffer)
+        self.err = collections.deque(maxlen=max_buffer)
 
         self.sa_logging = collections.deque(maxlen=max_buffer) #Buffer for 5khz data logging
         self.sa_ds_logging = collections.deque(maxlen=max_buffer) #Buffer 100 hz data logging
@@ -89,6 +92,10 @@ class bolo_adcCommunicator():
         self.sa_chan = 1
         self.fb_uf_chan = 2
         self.sa_uf_chan = 3
+        self.err_chan = 7
+        self.mon_chan = 5
+        
+        self.nchan_ls = 6 # number of channels read at low speed
 
         self.adc_gain = 4
 
@@ -214,9 +221,10 @@ class bolo_adcCommunicator():
         #It takes (not logs) data continously
         self.reset_queues()
         #We may as well get all four channels here
-        channels = [self.fb_chan, self.sa_chan, self.fb_uf_chan, self.sa_uf_chan]
-        gains = [self.adc_gain, self.adc_gain,self.adc_gain, self.adc_gain]
-        refs = [c.AREF_DIFF, c.AREF_DIFF,c.AREF_DIFF, c.AREF_DIFF]
+        channels = [self.fb_chan, self.sa_chan, self.fb_uf_chan, self.sa_uf_chan, 
+                    self.mon_chan, self.err_chan]
+        gains = [self.adc_gain]*self.nchan_ls #, self.adc_gain,self.adc_gain, self.adc_gain, self.adc_gain]
+        refs = [c.AREF_DIFF] * self.nchan_ls #, c.AREF_DIFF,c.AREF_DIFF, c.AREF_DIFF, c.AREF_DIFF]
         self.speed_flag = "ls"
         self.get_data(channels,gains,refs,self.ls_freq,0)
 
@@ -450,14 +458,15 @@ class bolo_adcCommunicator():
         time_diff = datetime.timedelta(microseconds=200)
         front = 0
         back = 0
+        bytes_per_reading = self.nchan_ls * 4 # 4 byte int for each reading
         while not self.stop_event.isSet():
             front += c.comedi_get_buffer_contents(self.dev,self.subdevice)
             if front < back:
                 self.logger.error("front<back comedi buffer error")
                 break
-            if (front-back)%16 != 0:
+            if (front-back)%bytes_per_reading != 0:
                 #print front,back
-                front = front-(front-back)%16
+                front = front-(front-back)%bytes_per_reading
             if front == back:
                 time.sleep(.01)
                 continue
@@ -473,8 +482,8 @@ class bolo_adcCommunicator():
                 data.append(struct.unpack("I",self.map.read(4))[0])
           
             dd = array(data)
-            n_elements = len(dd)/4
-            dd = dd.reshape(n_elements, 4)
+            n_elements = len(dd)/self.nchan_ls
+            dd = dd.reshape(n_elements, self.nchan_ls)
             c.comedi_mark_buffer_read(self.dev,self.subdevice,front-back)
             back = front
             self.adc_lock.release()
@@ -484,6 +493,8 @@ class bolo_adcCommunicator():
             temp_sa = self.convert_to_real(self.adc_gain,dd[:,1])
             temp_fb_nofilt = self.convert_to_real(self.adc_gain,dd[:,2])
             temp_sa_nofilt = self.convert_to_real(self.adc_gain,dd[:,3])
+            temp_mon = self.convert_to_real(self.adc_gain,dd[:,4])
+            temp_err = self.convert_to_real(self.adc_gain,dd[:,5])
 
             #Here we assume that the first value is first channel
             #self.data_lock.acquire()
@@ -491,6 +502,8 @@ class bolo_adcCommunicator():
             self.sa.extend(temp_sa)
             self.fb_nofilt.extend(temp_fb_nofilt)
             self.sa_nofilt.extend(temp_sa_nofilt)
+            self.mon.extend(temp_mon)
+            self.err.extend(temp_err)
             
             self.sa_logging.extend(temp_sa)
             self.fb_logging.extend(temp_fb)

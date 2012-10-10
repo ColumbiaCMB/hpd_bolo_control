@@ -4,6 +4,8 @@ import PyQt4.Qwt5 as Qwt
 from numpy import arange,sqrt
 from custom_qt_widgets import *
 
+import numpy as np
+
 try:
     _fromUtf8 = QtCore.QString.fromUtf8
 except AttributeError:
@@ -197,6 +199,15 @@ class bolo_adc_gui(QtGui.QDialog):
         self.sa_curve.attach(self.raw_plots.ssa_plot.plot_region)
         self.sa_curve.setPen(Qt.QPen(Qt.Qt.green))
         
+        self.mon_curve = Qwt.QwtPlotCurve("SA Setpoint")
+        self.mon_curve.attach(self.raw_plots.ssa_plot.plot_region)
+        self.mon_curve.setPen(Qt.QPen(Qt.Qt.blue))
+        
+        self.err_curve = Qwt.QwtPlotCurve("SA Error")
+        self.err_curve.attach(self.raw_plots.ssa_plot.plot_region)
+        self.err_curve.setPen(Qt.QPen(Qt.Qt.red))
+        
+        
         self.fb_ds_curve = Qwt.QwtPlotCurve("FB DS Monitor")
         self.fb_ds_curve.attach(self.fir_plots.fb_plot.plot_region)
         self.fb_ds_curve.setPen(Qt.QPen(Qt.Qt.yellow))
@@ -263,7 +274,11 @@ class bolo_adc_gui(QtGui.QDialog):
         fb_x = arange(len(self.p.fb))
         self.fb_curve.setData(fb_x,list(self.p.fb))
         sa_x = arange(len(self.p.sa))
-        self.sa_curve.setData(sa_x,list(self.p.sa))
+        self.sa_curve.setData(sa_x,list(self.p.sa_nofilt))
+        mon_x = arange(len(self.p.mon))
+        self.mon_curve.setData(mon_x,list(self.p.mon))
+        err_x = arange(len(self.p.err))
+        self.err_curve.setData(err_x,list(self.p.err))
 
         fb_ds_x = arange(len(self.p.fb_ds))
         self.fb_ds_curve.setData(fb_ds_x,list(self.p.fb_ds))
