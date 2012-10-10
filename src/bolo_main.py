@@ -68,8 +68,10 @@ class bolo_main():
 if __name__ == "__main__":
     main_b = bolo_main()
     main_b.launch_gui()
-    try:
-        IPython.embed()
-    except AttributeError:
-        IPython.Shell.IPShellEmbed()()
+    use_ipyhon = False
+    if use_ipython:
+        try:
+            IPython.embed()
+        except AttributeError:
+            IPython.Shell.IPShellEmbed()()
     sys.exit(main_b.app.exec_())
