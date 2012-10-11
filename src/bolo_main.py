@@ -64,14 +64,29 @@ class bolo_main():
         self.fridge_gui = fridge_gui(simclient=self.sim900, gui_parent=self.gui)
 
         self.gui.show()
+        
+    def set_defaults(self):
+        self.adc_gui.Gain_cb.setCurrentIndex(0) # +/-10 V range
+        self.adc_gui.Reset_Button.click() #commit
+        
+        self.bb_gui.ssa_bias_Input.setValue(1.2)
+        self.bb_gui.s2_bias_Input.setValue(2.0)
+        self.bb_gui.s1_bias_Input.setValue(0.8)
+        self.bb_gui.rs_channel_Input.setValue(2)
+        self.bb_gui.tes_bias_Input.setValue(-4.0)
+        self.bb_gui.pgain_Input.setCurrentIndex(2) # pgain 15
+        self.bb_gui.Ims_Input.setCurrentIndex(0) # igain 18.2
+        self.bb_gui.setpoint_Input.setValue(0.0335)
+        
+        
 
 if __name__ == "__main__":
     main_b = bolo_main()
     main_b.launch_gui()
-    use_ipython = False
+    use_ipython = True
     if use_ipython:
         try:
             IPython.embed()
         except AttributeError:
             IPython.Shell.IPShellEmbed()()
-    sys.exit(main_b.app.exec_())
+    sys.exit()# main_b.app.exec_())
