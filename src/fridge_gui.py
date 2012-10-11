@@ -108,7 +108,7 @@ class fridge_gui(QtGui.QDialog):
         self.manual_output_readout_label = QtGui.QLabel("Manual Output")
         self.manual_output_readout_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
 
-        self.bridge_setpoint_command_label = QtGui.QLabel("Bridge Setpoint")
+        self.bridge_setpoint_command_label = QtGui.QLabel("Bridge Setpoint (Direct)")
         self.bridge_setpoint_command_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
         self.pid_setpoint_command_label = QtGui.QLabel("PID Setpoint")
         self.pid_setpoint_command_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
@@ -139,6 +139,8 @@ class fridge_gui(QtGui.QDialog):
 
         self.status_label = QtGui.QLabel("Status:")
         self.status_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
+        self.status_bridge_setpoint_command_label = QtGui.QLabel("Bridge Setpoint Control:")
+        self.status_bridge_setpoint_command_label.setAlignment(QtCore.Qt.AlignVCenter|QtCore.Qt.AlignRight)
 
         #Create Value Boxes
         self.bridge_setpoint_value = QtGui.QLineEdit()
@@ -259,6 +261,11 @@ class fridge_gui(QtGui.QDialog):
         self.status_value = QtGui.QLineEdit()
         self.status_value.setReadOnly(True)
         self.status_value.setText("Ready")
+        self.status_bridge_setpoint_command_value = QtGui.QDoubleSpinBox()
+        self.status_bridge_setpoint_command_value.setEnabled(True)
+        self.status_bridge_setpoint_command_value.setRange(0.0,0.5)
+        self.status_bridge_setpoint_command_value.setSingleStep(0.1)
+        self.status_bridge_setpoint_command_value.setDecimals(6)
 
         #Create PushButtons
         self.setup_button = QtGui.QPushButton("Set Up")
@@ -353,9 +360,11 @@ class fridge_gui(QtGui.QDialog):
         self.pid_commands_layout.addWidget(self.o_command_label,4,6,1,1)
         self.pid_commands_layout.addWidget(self.o_command_value,4,7,1,1)
 
-        self.plot_layout.addWidget(self.temp_plot,0,0,1,2)
+        self.plot_layout.addWidget(self.temp_plot,0,0,1,4)
         self.plot_layout.addWidget(self.status_label,1,0,1,1)
         self.plot_layout.addWidget(self.status_value,1,1,1,1)
+        self.plot_layout.addWidget(self.status_bridge_setpoint_command_label,1,2,1,1)
+        self.plot_layout.addWidget(self.status_bridge_setpoint_command_value,1,3,1,1)
 
         #Add Layouts to Groups
         self.measurements_group.setLayout(self.measurements_layout)
@@ -421,6 +430,7 @@ class fridge_gui(QtGui.QDialog):
         QtCore.QObject.connect(self.i_gain_command_value,QtCore.SIGNAL("editingFinished()"),self.set_i_gain)
         QtCore.QObject.connect(self.d_gain_command_value,QtCore.SIGNAL("editingFinished()"),self.set_d_gain)
         QtCore.QObject.connect(self.o_command_value,QtCore.SIGNAL("editingFinished()"),self.set_o)
+        QtCore.QObject.connect(self.status_bridge_setpoint_command_value,QtCore.SIGNAL("editingFinished()"),self.set_status_bridge_setpoint)
 
     def blur_commands(self, state):
         #Blurs Commands
@@ -441,7 +451,7 @@ class fridge_gui(QtGui.QDialog):
 
     def set_bridge_setpoint(self):
         #Changes the Bridge Setpoint
-        self.sim900.setSetpoint(self.bridge_setpoint_command_value.value())
+        self.sim900.setBridgeSetpoint(self.bridge_setpoint_command_value.value())
 
     def set_pid_setpoint(self):
         #Changes the PID Setpoint
@@ -512,6 +522,10 @@ class fridge_gui(QtGui.QDialog):
     def set_o(self):
         #Sets the Offset
         self.sim900.setOffset(self.o_command_value.value())
+
+    def set_status_bridge_setpoint(self):
+        #Changes the Bridge Setpoint Gradually
+        self.sim900.setSetpoint(self.status_bridge_setpoint_command_value.value())
 
     def setupTimer(self):
         #Create a QT Timer that will timeout every half-a-second
