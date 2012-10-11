@@ -33,15 +33,20 @@ class bolo_main_gui(QtGui.QWidget):
 
     def show_board(self):
         self.p.bb_gui.show()
+        self.p.bb_gui.raise_()
 
     def show_adc(self):
         self.p.adc_gui.show()
+        self.p.adc_gui.raise_()
 
     def show_squid(self):
         self.p.squid_gui.show()
+        self.p.squid_gui.raise_()
 
     def show_data(self):
         self.p.data_gui.show()
+        self.p.data_gui.raise_()
 
     def show_fridge(self):
         self.p.fridge_gui.show()
+        self.p.fridge_gui.raise_()
