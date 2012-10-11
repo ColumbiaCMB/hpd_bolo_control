@@ -37,11 +37,11 @@ class bolo_board_gui(QtGui.QDialog):
 
 
         #voltages and RS
-        QtCore.QObject.connect(self.ssa_bias_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.ssa_bias_voltage)
+        QtCore.QObject.connect(self.ssa_bias_Input,QtCore.SIGNAL("valueChanged(double)"), self.ssa_bias_voltage)
         QtCore.QObject.connect(self.ssa_fb_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.ssa_fb_voltage)
-        QtCore.QObject.connect(self.s2_bias_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.s2_bias_voltage)
+        QtCore.QObject.connect(self.s2_bias_Input,QtCore.SIGNAL("valueChanged(double)"), self.s2_bias_voltage)
         QtCore.QObject.connect(self.s2_fb_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.s2_fb_voltage)
-        QtCore.QObject.connect(self.s1_bias_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.rs_voltage)
+        QtCore.QObject.connect(self.s1_bias_Input,QtCore.SIGNAL("valueChanged(double)"), self.rs_voltage)
         QtCore.QObject.connect(self.s1_fb_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.s1_fb_voltage)
         QtCore.QObject.connect(self.tes_bias_Input,QtCore.SIGNAL("valueChanged(double)"), self.p.tes_voltage)
 
@@ -65,6 +65,21 @@ class bolo_board_gui(QtGui.QDialog):
         #just run zero_voltages but need to do 
         #fancier stuff here
         self.p.zero_voltages()
+        
+    def rs_voltage(self,volts):
+        self.parent().p.squid_gui.s1_widget.bias_start_Input.setValue(volts)
+        self.parent().p.squid_gui.s1_widget.bias_stop_Input.setValue(volts)
+        self.p.rs_voltage(volts)
+    
+    def ssa_bias_voltage(self,volts):
+        self.parent().p.squid_gui.ssa_widget.bias_start_Input.setValue(volts)
+        self.parent().p.squid_gui.ssa_widget.bias_stop_Input.setValue(volts)
+        self.p.ssa_bias_voltage(volts)
+        
+    def s2_bias_voltage(self,volts):
+        self.parent().p.squid_gui.s2_widget.bias_start_Input.setValue(volts)
+        self.parent().p.squid_gui.s2_widget.bias_stop_Input.setValue(volts)
+        self.p.s2_bias_voltage(volts)
 
     def set_pgain(self,gain):
         self.p.set_pgain(gain.toInt()[0])
