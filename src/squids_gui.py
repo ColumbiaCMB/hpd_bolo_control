@@ -108,9 +108,9 @@ class sweep_widget(QtGui.QWidget):
         self.bias_start_Input.setProperty("value", -5.0)
         self.bias_stop_Input.setProperty("value", 5.0)
         self.bias_step_Input.setProperty("value", 0.001)
-        self.fb_start_Input.setProperty("value", -5.0)
-        self.fb_stop_Input.setProperty("value", 5.0)
-        self.fb_step_Input.setProperty("value", 0.001)
+        self.fb_start_Input.setProperty("value", -1.0)
+        self.fb_stop_Input.setProperty("value", 1.0)
+        self.fb_step_Input.setProperty("value", 0.002)
         self.fb_count_Input.setProperty("value", 1)
 
     def set_disable_all(self,state):
