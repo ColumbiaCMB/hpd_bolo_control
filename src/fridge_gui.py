@@ -636,15 +636,15 @@ class fridge_gui(QtGui.QDialog):
             self.manual_output_readout_value.setEnabled(True)
 
         #Update Temperature and Setpoint Lists
-        if len(self.temp_list) < 300:
+        if len(self.temp_list) < 500:
             self.temp_list.append(temp_bridge)
-        elif len(self.temp_list) >= 300:
+        elif len(self.temp_list) >= 500:
             del self.temp_list[0]
             self.temp_list.append(temp_bridge)
 
-        if len(self.bridge_setpoint_list) < 300:
+        if len(self.bridge_setpoint_list) < 500:
             self.bridge_setpoint_list.append(bridge_setpoint)
-        elif len(self.bridge_setpoint_list) >= 300:
+        elif len(self.bridge_setpoint_list) >= 500:
             del self.bridge_setpoint_list[0]
             self.bridge_setpoint_list.append(bridge_setpoint)
 
