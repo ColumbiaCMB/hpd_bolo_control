@@ -26,6 +26,13 @@ class fridge_gui(QtGui.QDialog):
         self.setupSlots()
         self.setupTimer()
 
+        #Creates an empty dictionary for data_logging, fetches sim900 data, and then updates the dictionary
+        #This is the dictionary that is looked at by data_logging
+        #The timer triggers the update method, which updates this dictionary
+        self.registers = {}
+        self.sim900.fetchDict()
+        self.registers.update(self.sim900.data)
+
     def setupUI(self):
         #Create Window and its Geometry
         self.setWindowTitle("Fridge Controls")
@@ -536,7 +543,9 @@ class fridge_gui(QtGui.QDialog):
 
     def update(self):
         #Fetches values from sim900 and updates value boxes
+        #Also updates the dictionary that data_logging is looking at
         self.sim900.fetchDict()
+        self.registers.update(self.sim900.data)
         bridge_setpoint = self.sim900.data["bridge_temperature_setpoint"]
         self.bridge_setpoint_value.setText(str(bridge_setpoint))
         temp_bridge = self.sim900.data["bridge_temp_value"]
