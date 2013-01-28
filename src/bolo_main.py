@@ -16,13 +16,18 @@ import IPython
 
 ## The main class function
 class bolo_main():
-    ## The init functoin
+    ## The init function: creates the application and main GUI, and creates instances of the imported classes
     def __init__(self):
+        self.app = QtGui.QApplication(sys.argv)
+        
+        self.gui = bolo_main_gui(self)
         self.bb = bolo_board()
         self.dl = data_logging()
         self.adc = bolo_adcCommunicator(data_logging=self.dl)
         self.sq = squids(bolo_board=self.bb,bolo_adc=self.adc,data_logging=self.dl)
         self.sim900 = sc.sim900Client(hostname="192.168.1.152")
+        self.fridge_gui = fridge_gui(simclient=self.sim900, gui_parent=self.gui)
+
         self.default_setup()
         self.quick_setup()
         self.setup_logging()
@@ -45,23 +50,21 @@ class bolo_main():
 
     def setup_logging(self):
         #This sets up a simple logging system
-        #We attache the bolo_board registers to it
+        #We attach the bolo_board registers to it, as well as fridge registers
         self.dl.addRegisters("bolo_board",self.bb.registers)
+        self.dl.addRegisters("fridge",self.fridge_gui.registers)
         self.dl.addStream("sa",self.adc.sa_logging,"reg_5khz",self.adc.netcdf_data_lock)
         self.dl.addStream("sa_ds",self.adc.sa_ds_logging,"reg_100hz",self.adc.netcdf_data_lock)
         self.dl.addStream("fb",self.adc.fb_logging,"reg_5khz",self.adc.netcdf_data_lock)
         self.dl.addStream("fb_ds",self.adc.fb_ds_logging,"reg_100hz",self.adc.netcdf_data_lock)
         
     def launch_gui(self):
-        self.app = QtGui.QApplication(sys.argv)
         #We setup all required gui's here but only
         #Show the main one
-        self.gui = bolo_main_gui(self)
         self.bb_gui = bolo_board_gui(self.bb,self.gui)
         self.adc_gui = bolo_adc_gui(self.adc,self.gui)
         self.squid_gui = bolo_squids_gui(self.sq,self.gui)
         self.data_gui = data_logging_gui(self.dl,self.gui)
-        self.fridge_gui = fridge_gui(simclient=self.sim900, gui_parent=self.gui)
 
         self.gui.show()
         

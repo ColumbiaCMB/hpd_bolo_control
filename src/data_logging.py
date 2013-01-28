@@ -9,7 +9,7 @@ from data_logging_gui import *
 logging.basicConfig()
 
 class data_logging:
-    def __init__(self,):
+    def __init__(self):
         self.logger = logging.getLogger('data_logging')
         self.logger.setLevel(logging.DEBUG)
 
