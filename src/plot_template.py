@@ -87,6 +87,7 @@ class plot_template(QtGui.QWidget):
         self.zoomer = Qwt.QwtPlotZoomer(Qwt.QwtPlot.xBottom,Qwt.QwtPlot.yLeft,Qwt.QwtPicker.DragSelection,Qwt.QwtPicker.AlwaysOn,self.plot_region.canvas())
         self.zoomer.setRubberBandPen(Qt.QPen(Qt.Qt.red))
         self.zoomer.setTrackerPen(Qt.QPen(Qt.Qt.cyan))
+        self.zoomer.setZoomBase()
 
     def setupLegend(self):
         self.legend  = Qwt.QwtLegend()

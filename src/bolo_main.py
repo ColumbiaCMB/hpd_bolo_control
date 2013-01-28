@@ -59,7 +59,7 @@ class bolo_main():
         self.dl.addStream("fb_ds",self.adc.fb_ds_logging,"reg_100hz",self.adc.netcdf_data_lock)
         
     def launch_gui(self):
-        #We setup all required gui's here but only
+        #We setup all the other gui's here but only
         #Show the main one
         self.bb_gui = bolo_board_gui(self.bb,self.gui)
         self.adc_gui = bolo_adc_gui(self.adc,self.gui)

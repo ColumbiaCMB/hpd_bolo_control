@@ -545,6 +545,7 @@ class fridge_gui(QtGui.QDialog):
         #Fetches values from sim900 and updates value boxes
         #Also updates the dictionary that data_logging is looking at
         self.sim900.fetchDict()
+        self.registers.update(self.sim900.data)
         bridge_setpoint = self.sim900.data["bridge_temperature_setpoint"]
         self.bridge_setpoint_value.setText(str(bridge_setpoint))
         temp_bridge = self.sim900.data["bridge_temp_value"]
