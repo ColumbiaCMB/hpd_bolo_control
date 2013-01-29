@@ -543,9 +543,7 @@ class fridge_gui(QtGui.QDialog):
 
     def update(self):
         #Fetches values from sim900 and updates value boxes
-        #Also updates the dictionary that data_logging is looking at
         self.sim900.fetchDict()
-        self.registers.update(self.sim900.data)
         bridge_setpoint = self.sim900.data["bridge_temperature_setpoint"]
         self.bridge_setpoint_value.setText(str(bridge_setpoint))
         temp_bridge = self.sim900.data["bridge_temp_value"]
@@ -643,14 +641,20 @@ class fridge_gui(QtGui.QDialog):
             self.manual_output_readout_value.setEnabled(False)
         elif pid_status==0.0:
             self.manual_output_readout_value.setEnabled(True)
-            
+
+        #This loop breaks the dictionaries within the the sim900 dictionary
+        #into separate variables, so we can look at them independently
+        #in the data_logging analysis
+        #You access each variable via the format " 'name' _ 'number' "
         for k in range(4):
             self.sim900.data['therm_temperature_%d' % k] = self.sim900.data['therm_temperature'][k]
             self.sim900.data['therm_volts_%d' % k] = self.sim900.data['therm_volts'][k]
             self.sim900.data['dvm_volts_%d' % k] = self.sim900.data['dvm_volts'][k]
             self.sim900.data['dvm_ref_%d' % k] = self.sim900.data['dvm_ref'][k]
             self.sim900.data['dvm_gnd_%d' % k] = self.sim900.data['dvm_gnd'][k]
-            
+
+        #This is the method that updates the dictionary that data_logging
+        #is looking at, just like above
         self.registers.update(self.sim900.data)
 
 
