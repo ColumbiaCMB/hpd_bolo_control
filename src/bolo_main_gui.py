@@ -10,12 +10,14 @@ class bolo_main_gui(QtGui.QWidget):
 
     def setupUI(self):
         self.button_layout = QtGui.QVBoxLayout()
+        self.resetButton = QtGui.QPushButton("Reset Board")
         self.boardButton = QtGui.QPushButton("Board Control")
         self.adcButton = QtGui.QPushButton("ADC Control")
         self.squidButton = QtGui.QPushButton("Squid Control")
         self.dataButton = QtGui.QPushButton("Data Logging")
         self.fridgeButton = QtGui.QPushButton("Fridge Control")
 
+        self.button_layout.addWidget(self.resetButton)
         self.button_layout.addWidget(self.boardButton)
         self.button_layout.addWidget(self.adcButton)
         self.button_layout.addWidget(self.squidButton)
@@ -25,6 +27,7 @@ class bolo_main_gui(QtGui.QWidget):
         self.setLayout(self.button_layout)
 
     def setupSlots(self):
+          QtCore.QObject.connect(self.resetButton,QtCore.SIGNAL("clicked()"), self.p.quick_setup())
           QtCore.QObject.connect(self.boardButton,QtCore.SIGNAL("clicked()"), self.show_board)
           QtCore.QObject.connect(self.adcButton,QtCore.SIGNAL("clicked()"), self.show_adc)
           QtCore.QObject.connect(self.squidButton,QtCore.SIGNAL("clicked()"), self.show_squid)
