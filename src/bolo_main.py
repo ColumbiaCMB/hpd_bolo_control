@@ -46,6 +46,7 @@ class bolo_main():
         self.bb.pgain_switch(True)
         self.bb.tconst_switch(True)
         self.bb.short_int_switch(True)
+        self.bb.zero_voltages()
         #self.sq.setup_res_comp()
 
     def setup_logging(self):
@@ -87,6 +88,7 @@ if __name__ == "__main__":
     main_b = bolo_main()
     main_b.launch_gui()
     use_ipython = True
+    print "Access main class as main_b"
     if use_ipython:
         try:
             IPython.embed()
