@@ -27,7 +27,7 @@ class bolo_main_gui(QtGui.QWidget):
         self.setLayout(self.button_layout)
 
     def setupSlots(self):
-          QtCore.QObject.connect(self.resetButton,QtCore.SIGNAL("clicked()"), self.p.quick_setup())
+          QtCore.QObject.connect(self.resetButton,QtCore.SIGNAL("clicked()"), self.p.quick_setup)
           QtCore.QObject.connect(self.boardButton,QtCore.SIGNAL("clicked()"), self.show_board)
           QtCore.QObject.connect(self.adcButton,QtCore.SIGNAL("clicked()"), self.show_adc)
           QtCore.QObject.connect(self.squidButton,QtCore.SIGNAL("clicked()"), self.show_squid)
