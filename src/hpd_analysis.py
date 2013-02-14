@@ -38,9 +38,13 @@ def plotTemps(filename):
     
     f = plt.figure()
     ax = f.add_subplot(111)
-    ax.plot(magcur, bt, ',')
+    ax.plot(magcur, bt, ',',label='Temperature')
+    pf = np.polyfit(magcur[-120:],bt[-120:],1)
+    x = np.linspace(0,9.4,100)
+    ax.plot(x,np.polyval(pf,x),'--',label=('Predicted final: %.1f mK' % (1000*pf[1])))
     ax.set_xlabel('Magnet current (A)')
     ax.set_ylabel('Temperature (K)')
+    ax.legend(loc='upper left')
     ax.set_title('Package temperature vs. magnet current\n%s' % filename)
     ax.grid()
     
@@ -60,5 +64,5 @@ def plotTemps(filename):
     
     
     nc.close()
-    return t,bt,magcur
+    return t,bt,magcur,t4k
     
