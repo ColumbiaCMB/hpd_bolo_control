@@ -491,6 +491,9 @@ class bolo_squids_gui(QtGui.QDialog):
                         self.s2_widget.bias_start_Input.value(),
                         self.s2_widget.bias_stop_Input.value(),
                         self.s2_widget.fb_count_Input.value())
+        self.SaveButton.setText("Save S2 VPHI")
+        self.data_saved = False
+
 
     def run_s1_VPhi(self):
         self.s1_widget.ssa_plot.plot_region.clear()
@@ -502,6 +505,9 @@ class bolo_squids_gui(QtGui.QDialog):
                         self.s1_widget.bias_start_Input.value(),
                         self.s1_widget.bias_stop_Input.value(),
                         self.s1_widget.fb_count_Input.value())
+        self.SaveButton.setText("Save S1 VPHI")
+        self.data_saved = False
+                        
 
     def run_s1_fb_VPhi(self):
         self.s1_fb_widget.ssa_plot.plot_region.clear()
@@ -626,7 +632,7 @@ class bolo_squids_gui(QtGui.QDialog):
                                     self.tes_iv_widget.bias_step_Input.value(),
                                     count)
         
-        self.SaveButton.setText("Save S1 FB VI")
+        self.SaveButton.setText("Save TES VI")
         self.data_saved = False
 
 
