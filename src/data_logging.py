@@ -149,16 +149,19 @@ class data_logging:
 
         group = self.rootgrp.createGroup(group_name)
         
+        group.mjd = mjd
+        
         bpoints = []
         curve_num = 0 
         for bias_point in sorted(Phi.iterkeys()):
+            print "storing bias:",bias_point
             bpoints.append(bias_point)
             phi_data = []
             v_data = []
             phi_data.extend(Phi[bias_point])
             v_data.extend(V[bias_point])
             n_points = len(phi_data)
-
+            print "len phi", len(phi_data), "len v", len(v_data), "npoints", n_points
             dim_name = "n_points_%i" % curve_num
             phi_name = "PHI_%i" % curve_num
             v_name = "V_%i" % curve_num

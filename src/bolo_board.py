@@ -358,7 +358,7 @@ class bolo_board():
         #We record the value and the timestamp for matching
         #Calculate number of steps etc
         #for sin step is the period
-        pause = 0.01 # 2012.09.06 changed from 0.001 to slow down IV sweep (hack)
+        pause = 0.005 # 2012.09.06 changed from 0.001 to 0.01 to slow down IV sweep (hack)
         self.data_lock.acquire()
         self.sweep_ts_data.clear()
         self.sweep_v_data.clear()

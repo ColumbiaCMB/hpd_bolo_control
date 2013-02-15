@@ -117,11 +117,14 @@ class squids():
         for b in bias_steps:
             self.bb.ssa_bias_voltage(b)
             self.sweep("ssa_fb",fb_start,fb_stop,fb_step)
-            print "ROOOOOS", len(self.x_cont)
             self.VPhi_data_x[b] = self.x_cont
             self.VPhi_data_y[b] = self.y_cont
         
         self.adc_data.start_data_logging(False) #stop filling the data buffer
+        for k,v in self.VPhi_data_x.items():
+            print k,"len=",len(v)
+        self.write_VPHI_data('ssa','')
+        print "saved ssa vphi"
 
     def s2_VPhi_thread(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
         self.sweep_thread = threading.Thread(target=self.s2_VPhi,
@@ -142,6 +145,32 @@ class squids():
             self.VPhi_data_y[b] = self.y_cont
         
         self.adc_data.start_data_logging(False) #stop filling the data buffer
+        self.write_VPHI_data('s2','')
+        print "saved s2 vphi"
+        
+    def s2_VPhi_vs_s1_bias(self,fb_start,fb_stop,fb_step,s1b_start,s1b_stop,n_steps):
+        """
+        sweep s2 fb to plot VPhi response at different s1 bias points to see interaction between them.
+        """
+        bias_steps = linspace(s1b_start,s1b_stop,n_steps)
+        self.VPhi_data_x = {}
+        self.VPhi_data_y = {}
+        self.adc_data.start_data_logging(True) #start filling the data buffer
+        for b in bias_steps:
+            self.bb.rs_voltage(b)
+            self.sweep("s2_fb",fb_start,fb_stop,fb_step)
+            self.VPhi_data_x[b] = self.x_cont
+            self.VPhi_data_y[b] = self.y_cont  
+            
+        self.adc_data.start_data_logging(False) #stop filling the data buffer                  
+        self.write_VPHI_data('s2','s2 vphi versus s1 bias')
+        print "wrote data for s2 vphi vs s1 bias"
+        
+    def s2_VPhi_vs_s1_bias_thread(self,fb_start,fb_stop,fb_step,s1b_start,s1b_stop,n_steps):
+        self.sweep_thread = threading.Thread(target=self.s2_VPhi_vs_s1_bias,
+                                             args = (fb_start,fb_stop,fb_step,s1b_start,s1b_stop,n_steps))
+        self.sweep_thread.daemon = True
+        self.sweep_thread.start()
 
     def s1_VPhi_thread(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
         self.sweep_thread = threading.Thread(target=self.s1_VPhi,
@@ -162,6 +191,9 @@ class squids():
             self.VPhi_data_y[b] = self.y_cont
         
         self.adc_data.start_data_logging(False) #stop filling the data buffer
+        self.write_VPHI_data('s1','')
+        print "saved s1 vphi"
+
 
     def s1_fb_VPhi_thread(self,fb_start,fb_stop,fb_step,start,stop,n_steps):
         self.sweep_thread = threading.Thread(target=self.s1_fb_VPhi,
@@ -341,6 +373,8 @@ class squids():
                 self.dlog.add_VPHI_data(self.VPhi_data_x, 
                                         self.VPhi_data_y,
                                         mjd,meta,name)
+                return
+        print "could not save vphi data, no file open!"
 
     def __del__(self):
         del self.bb
