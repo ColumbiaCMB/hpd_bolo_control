@@ -30,6 +30,7 @@ class data_logging:
         else:
             self.file_name = temp_name + "_" + suffix + ".nc"
 
+        self.file_name = os.path.join('/home/adclocal/data/cooldown_logs', self.file_name)
         self.rootgrp = Dataset(self.file_name, 'w', format='NETCDF4')
         self.setup_file()
 
