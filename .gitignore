@@ -27,3 +27,6 @@ TAGS
 
 #And netcdf files
 *.nc
+
+#PNGs created by ncplot.py
+*_VPHI_*
