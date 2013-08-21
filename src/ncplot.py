@@ -45,13 +45,17 @@ def plotAllVphi(ncname,plotdir = '/home/adclocal/tesdata/plots'):
     nc = netCDF4.Dataset(ncname)
     vphis = [str(x) for x in nc.groups.keys() if x.find('VPHI') >= 0]   # list of all vphi groups
     fits = {}
+    if plotdir:
+        figure = Figure
+        figsize=(8,15)
+    else:
+        figure = plt.figure
+        figsize=(8,6)
     for vphi in vphis:
-        f = plt.figure()
-        ax = f.add_subplot(111)
-        f2 = plt.figure()
-        ax2 = f2.add_subplot(111)
-        f3 = plt.figure()
-        ax3 = f3.add_subplot(111)
+        f = figure(figsize=figsize)
+        ax = f.add_subplot(311)
+        ax2 = f.add_subplot(312)
+        ax3 = f.add_subplot(313)
         
         vphig = nc.groups[vphi]
         vphiv = vphig.variables
@@ -82,9 +86,9 @@ def plotAllVphi(ncname,plotdir = '/home/adclocal/tesdata/plots'):
 #            ax.plot(x,axb(x,*p),'--',color=l.get_color())
         fits[vphi] = fitarry
         stage_temp = fridge['bridge_temp_value']
-        ax.legend(title='bias', prop=dict(size='small'))
-        ax2.legend(title='bias', prop=dict(size='small'))
-        ax3.legend(title='bias', prop=dict(size='small'))
+        ax.legend(title='bias', prop=dict(size='x-small'))
+        ax2.legend(title='bias', prop=dict(size='x-small'))
+        ax3.legend(title='bias', prop=dict(size='x-small'))
         ax2.set_title('fits')
         ax3.set_title('residuals')
         ax.set_xlabel('FB Voltage')
@@ -96,6 +100,10 @@ def plotAllVphi(ncname,plotdir = '/home/adclocal/tesdata/plots'):
         
         title = "%s\n%s : %s UTC\n%s" % (os.path.abspath(ncname),vphi, time.ctime(ut),vphig.log)
         f.suptitle(title,size='small')
+        if plotdir:
+            fname = os.path.join(plotdir,ncname + '_' + vphi + '.png')
+            canvas = FigureCanvasAgg(f)
+            canvas.print_figure(fname)
         
     nc.close()
     return fits

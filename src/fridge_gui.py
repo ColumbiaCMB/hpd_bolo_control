@@ -6,7 +6,8 @@
 #Import modules
 import sys
 from PyQt4 import QtGui, QtCore, Qt
-import pygcp.servers.sim900.sim900Client as sc
+#import pygcp.servers.sim900.sim900Client as sc
+import sim900.sim900Client as sc
 from time import sleep
 from plot_template import plot_template
 import PyQt4.Qwt5 as Qwt
